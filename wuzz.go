@@ -12,11 +12,14 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/jroimartin/gocui"
 )
 
-var CLIENT *http.Client = &http.Client{}
+var CLIENT *http.Client = &http.Client{
+	Timeout: time.Duration(5 * time.Second),
+}
 var TRANSPORT *http.Transport = &http.Transport{}
 
 var VIEWS []string = []string{
@@ -178,16 +181,17 @@ func (a *App) SubmitRequest(g *gocui.Gui, _ *gocui.View) error {
 	vrh.Clear()
 	popup(g, "Sending request..")
 
-	go g.Execute(func(g *gocui.Gui) error {
+	go func(g *gocui.Gui) error {
 		defer g.DeleteView("popup")
-		// get views
-		vrb, _ := g.View("response-body")
-		vrh, _ := g.View("response-headers")
 		// parse url
 		base_url := getViewValue(g, "url")
 		u, err := url.Parse(base_url)
 		if err != nil {
-			fmt.Fprintf(vrb, "URL parse error: %v", err)
+			g.Execute(func(g *gocui.Gui) error {
+				vrb, _ := g.View("response-body")
+				fmt.Fprintf(vrb, "URL parse error: %v", err)
+				return nil
+			})
 			return nil
 		}
 		u.RawQuery = strings.Replace(getViewValue(g, "get"), "\n", "&", -1)
@@ -204,7 +208,11 @@ func (a *App) SubmitRequest(g *gocui.Gui, _ *gocui.View) error {
 		// create request
 		req, err := http.NewRequest(method, u.String(), data)
 		if err != nil {
-			fmt.Fprintf(vrb, "Request error: %v", err)
+			g.Execute(func(g *gocui.Gui) error {
+				vrb, _ := g.View("response-body")
+				fmt.Fprintf(vrb, "Request error: %v", err)
+				return nil
+			})
 			return nil
 		}
 
@@ -222,7 +230,11 @@ func (a *App) SubmitRequest(g *gocui.Gui, _ *gocui.View) error {
 		// do request
 		response, err := CLIENT.Do(req)
 		if err != nil {
-			fmt.Fprintf(vrb, "Response error: %v", err)
+			g.Execute(func(g *gocui.Gui) error {
+				vrb, _ := g.View("response-body")
+				fmt.Fprintf(vrb, "Response error: %v", err)
+				return nil
+			})
 			return nil
 		}
 		defer response.Body.Close()
@@ -234,29 +246,34 @@ func (a *App) SubmitRequest(g *gocui.Gui, _ *gocui.View) error {
 			a.rawResponseBody = bodyBytes
 		}
 
-		a.PrintBody(g)
+		g.Execute(func(g *gocui.Gui) error {
+			vrh, _ := g.View("response-headers")
 
-		// print status code and sorted headers
-		hkeys := make([]string, 0, len(response.Header))
-		for hname, _ := range response.Header {
-			hkeys = append(hkeys, hname)
-		}
-		sort.Strings(hkeys)
-		status_color := 32
-		if response.StatusCode != 200 {
-			status_color = 31
-		}
-		fmt.Fprintf(vrh,
-			"\x1b[0;%dmHTTP/1.1 %v %v\x1b[0;0m\n",
-			status_color,
-			response.StatusCode,
-			http.StatusText(response.StatusCode),
-		)
-		for _, hname := range hkeys {
-			fmt.Fprintf(vrh, "\x1b[0;33m%v:\x1b[0;0m %v\n", hname, strings.Join(response.Header[hname], ","))
-		}
+			a.PrintBody(g)
+
+			// print status code and sorted headers
+			hkeys := make([]string, 0, len(response.Header))
+			for hname, _ := range response.Header {
+				hkeys = append(hkeys, hname)
+			}
+			sort.Strings(hkeys)
+			status_color := 32
+			if response.StatusCode != 200 {
+				status_color = 31
+			}
+			fmt.Fprintf(vrh,
+				"\x1b[0;%dmHTTP/1.1 %v %v\x1b[0;0m\n",
+				status_color,
+				response.StatusCode,
+				http.StatusText(response.StatusCode),
+			)
+			for _, hname := range hkeys {
+				fmt.Fprintf(vrh, "\x1b[0;33m%v:\x1b[0;0m %v\n", hname, strings.Join(response.Header[hname], ","))
+			}
+			return nil
+		})
 		return nil
-	})
+	}(g)
 
 	return nil
 }
