@@ -263,11 +263,13 @@ func (a *App) PrintBody(g *gocui.Gui) {
 		vrb, _ := g.View("response-body")
 		vrb.Clear()
 		if strings.Index(a.contentType, "text") == -1 && strings.Index(a.contentType, "application") == -1 {
+			vrb.Title = "Response body"
 			fmt.Fprint(vrb, "[binary content]")
 			return nil
 		}
 		search_text := getViewValue(g, "search")
 		if search_text == "" {
+			vrb.Title = "Response body"
 			vrb.Write(a.rawResponseBody)
 			return nil
 		}
@@ -278,10 +280,11 @@ func (a *App) PrintBody(g *gocui.Gui) {
 		}
 		results := search_re.FindAll(a.rawResponseBody, 1000)
 		if len(results) == 0 {
+			vrb.Title = "No results"
 			fmt.Fprint(vrb, "Error: no results")
 			return nil
 		}
-		fmt.Fprintf(vrb, "%d results\n\n", len(results))
+		vrb.Title = fmt.Sprintf("%d results", len(results))
 		for _, result := range results {
 			fmt.Fprintf(vrb, "-----\n%s\n", result)
 		}
