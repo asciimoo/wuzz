@@ -17,6 +17,7 @@ import (
 )
 
 var CLIENT *http.Client = &http.Client{}
+var TRANSPORT *http.Transport = &http.Transport{}
 
 var VIEWS []string = []string{
 	"url",
@@ -43,6 +44,11 @@ type App struct {
 type SearchEditor struct {
 	app *App
 	g   *gocui.Gui
+}
+
+func init() {
+	TRANSPORT.DisableCompression = true
+	CLIENT.Transport = TRANSPORT
 }
 
 func (e *SearchEditor) Edit(v *gocui.View, key gocui.Key, ch rune, mod gocui.Modifier) {
