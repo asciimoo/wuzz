@@ -11,6 +11,7 @@ import (
 	"os"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -375,6 +376,16 @@ func (a *App) ParseArgs(g *gocui.Gui) error {
 			data, _ := url.QueryUnescape(os.Args[arg_index])
 			vdata, _ := g.View("data")
 			setViewTextAndCursor(vdata, data)
+		case "-t", "--timeout":
+			if arg_index == args_len-1 {
+				return errors.New("No timeout value specified")
+			}
+			arg_index += 1
+			timeout, err := strconv.Atoi(os.Args[arg_index])
+			if err != nil || timeout <= 0 {
+				return errors.New("Invalid timeout value")
+			}
+			CLIENT.Timeout = time.Duration(timeout) * time.Millisecond
 		default:
 			u := os.Args[arg_index]
 			parsed_url, err := url.Parse(u)
@@ -448,7 +459,7 @@ func help() {
 	fmt.Println(`wuzz
 Interactive cli tool for HTTP inspection
 
-Usage: wuzz [-H|--header=HEADER] [-D|--data=POST_DATA] [URL]
+Usage: wuzz [-H|--header=HEADER]... [-D|--data=POST_DATA] [-t|--timeout=MSECS]  [URL]
 
 Key bindings:
  ctrl+r         Send request
