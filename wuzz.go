@@ -326,6 +326,7 @@ func (a *App) SetKeys(g *gocui.Gui) {
 	g.SetKeybinding("", gocui.KeyCtrlK, gocui.ModNone, a.PrevView)
 
 	g.SetKeybinding("", gocui.KeyCtrlR, gocui.ModNone, a.SubmitRequest)
+	g.SetKeybinding("url", gocui.KeyEnter, gocui.ModNone, a.SubmitRequest)
 
 	// responses common keybindings
 	for _, view := range []string{"response-body", "response-headers"} {
