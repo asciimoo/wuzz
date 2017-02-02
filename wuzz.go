@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"compress/gzip"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -242,6 +243,21 @@ func (a *App) SubmitRequest(g *gocui.Gui, _ *gocui.View) error {
 
 		// print body
 		a.contentType = response.Header.Get("Content-Type")
+		if response.Header.Get("Content-Encoding") == "gzip" {
+			reader, err := gzip.NewReader(response.Body)
+			if err == nil {
+				defer reader.Close()
+				response.Body = reader
+			} else {
+				g.Execute(func(g *gocui.Gui) error {
+					vrb, _ := g.View("response-body")
+					fmt.Fprintf(vrb, "Cannot uncompress response: %v", err)
+					return nil
+				})
+				return nil
+			}
+		}
+
 		bodyBytes, err := ioutil.ReadAll(response.Body)
 		if err == nil {
 			a.rawResponseBody = bodyBytes
