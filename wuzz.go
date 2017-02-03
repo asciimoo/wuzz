@@ -598,18 +598,17 @@ func quit(g *gocui.Gui, v *gocui.View) error {
 }
 
 func help() {
-	fmt.Println(`wuzz
-Interactive cli tool for HTTP inspection
+	fmt.Println(`wuzz - Interactive cli tool for HTTP inspection
 
-Usage: wuzz [-H|--header=HEADER]... [-D|--data=POST_DATA] [-t|--timeout=MSECS]  [URL]
+Usage: wuzz [-H|--header=HEADER]... [-D|--data=POST_DATA] [-t|--timeout=MSECS] [URL]
 
 Key bindings:
- ctrl+r       Send request
- tab, ctrl+j  Next window
- ctrl+k       Previous window
- ctrl+h       Show history
- pageUp       Scroll up the current window
- pageDown     Scroll down the current window`,
+  ctrl+r       Send request
+  tab, ctrl+j  Next window
+  ctrl+k       Previous window
+  ctrl+h       Show history
+  pageUp       Scroll up the current window
+  pageDown     Scroll down the current window`,
 	)
 }
 
