@@ -35,15 +35,21 @@ var VIEWS []string = []string{
 	"search",
 }
 
-type RequestParam struct {
-	Key   string
-	Value string
+type Request struct {
+	Url             string
+	Method          string
+	GetParams       string
+	Data            string
+	Headers         string
+	ResponseHeaders string
+	RawResponseBody []byte
+	ContentType     string
 }
 
 type App struct {
-	viewIndex       int
-	rawResponseBody []byte
-	contentType     string
+	viewIndex    int
+	historyIndex int
+	history      []*Request
 }
 
 type SearchEditor struct {
@@ -141,8 +147,6 @@ func (a *App) Layout(g *gocui.Gui) error {
 		v.Editor = &SearchEditor{a, g}
 		v.Wrap = true
 	}
-
-	g.SetCurrentView(VIEWS[a.viewIndex])
 	return nil
 }
 
@@ -183,11 +187,13 @@ func (a *App) SubmitRequest(g *gocui.Gui, _ *gocui.View) error {
 	vrh.Clear()
 	popup(g, "Sending request..")
 
-	go func(g *gocui.Gui) error {
+	var r *Request = &Request{}
+
+	go func(g *gocui.Gui, a *App, r *Request) error {
 		defer g.DeleteView("popup")
 		// parse url
-		base_url := getViewValue(g, "url")
-		u, err := url.Parse(base_url)
+		r.Url = getViewValue(g, "url")
+		u, err := url.Parse(r.Url)
 		if err != nil {
 			g.Execute(func(g *gocui.Gui) error {
 				vrb, _ := g.View("response-body")
@@ -197,18 +203,20 @@ func (a *App) SubmitRequest(g *gocui.Gui, _ *gocui.View) error {
 			return nil
 		}
 		u.RawQuery = strings.Replace(getViewValue(g, "get"), "\n", "&", -1)
+		r.GetParams = u.RawQuery
 
 		// parse method
-		method := getViewValue(g, "method")
+		r.Method = getViewValue(g, "method")
 
 		// parse POST/PUT data
 		data := bytes.NewBufferString("")
-		if method == "POST" || method == "PUT" {
-			data.WriteString(strings.Replace(getViewValue(g, "data"), "\n", "&", -1))
+		r.Data = strings.Replace(getViewValue(g, "data"), "\n", "&", -1)
+		if r.Method == "POST" || r.Method == "PUT" {
+			data.WriteString(r.Data)
 		}
 
 		// create request
-		req, err := http.NewRequest(method, u.String(), data)
+		req, err := http.NewRequest(r.Method, u.String(), data)
 		if err != nil {
 			g.Execute(func(g *gocui.Gui) error {
 				vrb, _ := g.View("response-body")
@@ -220,7 +228,8 @@ func (a *App) SubmitRequest(g *gocui.Gui, _ *gocui.View) error {
 
 		// set headers
 		req.Header.Set("User-Agent", "")
-		headers := strings.Split(getViewValue(g, "headers"), "\n")
+		r.Headers = getViewValue(g, "headers")
+		headers := strings.Split(r.Headers, "\n")
 		for _, header := range headers {
 			header_parts := strings.SplitN(header, ": ", 2)
 			if len(header_parts) != 2 {
@@ -241,8 +250,8 @@ func (a *App) SubmitRequest(g *gocui.Gui, _ *gocui.View) error {
 		}
 		defer response.Body.Close()
 
-		// print body
-		a.contentType = response.Header.Get("Content-Type")
+		// extract body
+		r.ContentType = response.Header.Get("Content-Type")
 		if response.Header.Get("Content-Encoding") == "gzip" {
 			reader, err := gzip.NewReader(response.Body)
 			if err == nil {
@@ -260,9 +269,14 @@ func (a *App) SubmitRequest(g *gocui.Gui, _ *gocui.View) error {
 
 		bodyBytes, err := ioutil.ReadAll(response.Body)
 		if err == nil {
-			a.rawResponseBody = bodyBytes
+			r.RawResponseBody = bodyBytes
 		}
 
+		// add to history
+		a.history = append(a.history, r)
+		a.historyIndex = len(a.history) - 1
+
+		// render response
 		g.Execute(func(g *gocui.Gui) error {
 			vrh, _ := g.View("response-headers")
 
@@ -278,31 +292,37 @@ func (a *App) SubmitRequest(g *gocui.Gui, _ *gocui.View) error {
 			if response.StatusCode != 200 {
 				status_color = 31
 			}
-			fmt.Fprintf(vrh,
+			header_str := fmt.Sprintf(
 				"\x1b[0;%dmHTTP/1.1 %v %v\x1b[0;0m\n",
 				status_color,
 				response.StatusCode,
 				http.StatusText(response.StatusCode),
 			)
 			for _, hname := range hkeys {
-				fmt.Fprintf(vrh, "\x1b[0;33m%v:\x1b[0;0m %v\n", hname, strings.Join(response.Header[hname], ","))
+				header_str += fmt.Sprintf("\x1b[0;33m%v:\x1b[0;0m %v\n", hname, strings.Join(response.Header[hname], ","))
 			}
+			fmt.Fprint(vrh, header_str)
+			r.ResponseHeaders = header_str
 			return nil
 		})
 		return nil
-	}(g)
+	}(g, a, r)
 
 	return nil
 }
 
 func (a *App) PrintBody(g *gocui.Gui) {
 	g.Execute(func(g *gocui.Gui) error {
-		if a.rawResponseBody == nil {
+		if len(a.history) == 0 {
+			return nil
+		}
+		req := a.history[a.historyIndex]
+		if req.RawResponseBody == nil {
 			return nil
 		}
 		vrb, _ := g.View("response-body")
 		vrb.Clear()
-		if strings.Index(a.contentType, "text") == -1 && strings.Index(a.contentType, "application") == -1 {
+		if strings.Index(req.ContentType, "text") == -1 && strings.Index(req.ContentType, "application") == -1 {
 			vrb.Title = "Response body"
 			fmt.Fprint(vrb, "[binary content]")
 			return nil
@@ -310,7 +330,7 @@ func (a *App) PrintBody(g *gocui.Gui) {
 		search_text := getViewValue(g, "search")
 		if search_text == "" {
 			vrb.Title = "Response body"
-			vrb.Write(a.rawResponseBody)
+			vrb.Write(req.RawResponseBody)
 			return nil
 		}
 		search_re, err := regexp.Compile(search_text)
@@ -318,7 +338,7 @@ func (a *App) PrintBody(g *gocui.Gui) {
 			fmt.Fprint(vrb, "Error: invalid search regexp")
 			return nil
 		}
-		results := search_re.FindAll(a.rawResponseBody, 1000)
+		results := search_re.FindAll(req.RawResponseBody, 1000)
 		if len(results) == 0 {
 			vrb.Title = "No results"
 			fmt.Fprint(vrb, "Error: no results")
@@ -342,6 +362,8 @@ func (a *App) SetKeys(g *gocui.Gui) {
 	g.SetKeybinding("", gocui.KeyCtrlJ, gocui.ModNone, a.NextView)
 	g.SetKeybinding("", gocui.KeyCtrlK, gocui.ModNone, a.PrevView)
 
+	g.SetKeybinding("", gocui.KeyCtrlH, gocui.ModNone, a.ToggleHistory)
+
 	g.SetKeybinding("", gocui.KeyCtrlR, gocui.ModNone, a.SubmitRequest)
 	g.SetKeybinding("url", gocui.KeyEnter, gocui.ModNone, a.SubmitRequest)
 
@@ -360,10 +382,114 @@ func (a *App) SetKeys(g *gocui.Gui) {
 			return nil
 		})
 	}
+
+	// history keybindings
+	g.SetKeybinding("history", gocui.KeyArrowDown, gocui.ModNone, func(g *gocui.Gui, v *gocui.View) error {
+		cx, cy := v.Cursor()
+		v.SetCursor(cx, cy+1)
+		return nil
+	})
+	g.SetKeybinding("history", gocui.KeyArrowUp, gocui.ModNone, func(g *gocui.Gui, v *gocui.View) error {
+		cx, cy := v.Cursor()
+		if cy > 0 {
+			cy -= 1
+		}
+		v.SetCursor(cx, cy)
+		return nil
+	})
+	g.SetKeybinding("history", gocui.KeyEnter, gocui.ModNone, func(g *gocui.Gui, v *gocui.View) error {
+		_, cy := v.Cursor()
+		// TODO error
+		if len(a.history) <= cy {
+			return nil
+		}
+		a.restoreRequest(g, cy)
+		return nil
+	})
+}
+
+func (a *App) closeHistory(g *gocui.Gui) {
+	_, err := g.View("history")
+	if err == nil {
+		g.DeleteView("history")
+		g.SetCurrentView(VIEWS[a.viewIndex%len(VIEWS)])
+		g.Cursor = true
+	}
+}
+
+func (a *App) ToggleHistory(g *gocui.Gui, _ *gocui.View) error {
+	_, err := g.View("history")
+	if err == nil {
+		a.closeHistory(g)
+		return nil
+	}
+	g.Cursor = false
+	var history *gocui.View
+	maxX, maxY := g.Size()
+	height := len(a.history)
+	if height > maxY-1 {
+		height = maxY - 1
+	}
+	width := 100
+	if width > maxX-2 {
+		width = maxX - 2
+	}
+	if history, err = g.SetView("history", maxX/2-width/2-1, maxY/2-height/2-1, maxX/2+width/2+1, maxY/2+height/2+1); err != nil {
+		if err != gocui.ErrUnknownView {
+			return nil
+		}
+		history.Wrap = false
+		history.Frame = true
+		history.Title = "History"
+		history.Highlight = true
+		history.SelFgColor = gocui.ColorYellow
+		if len(a.history) == 0 {
+			setViewTextAndCursor(history, "[!] No items in history")
+			return nil
+		}
+		for i, h := range a.history {
+			fmt.Fprintf(history, "[%02d] %v\n", i, h.Url)
+		}
+		g.SetViewOnTop("history")
+		g.SetCurrentView("history")
+		history.SetCursor(0, a.historyIndex)
+	}
+	return nil
+}
+
+func (a *App) restoreRequest(g *gocui.Gui, idx int) {
+	if idx < 0 || idx >= len(a.history) {
+		return
+	}
+	a.closeHistory(g)
+	a.historyIndex = idx
+	r := a.history[idx]
+
+	v, _ := g.View("url")
+	setViewTextAndCursor(v, r.Url)
+
+	v, _ = g.View("method")
+	setViewTextAndCursor(v, r.Method)
+
+	v, _ = g.View("get")
+	setViewTextAndCursor(v, r.GetParams)
+
+	v, _ = g.View("data")
+	setViewTextAndCursor(v, r.Data)
+
+	v, _ = g.View("headers")
+	setViewTextAndCursor(v, r.Headers)
+
+	v, _ = g.View("response-headers")
+	setViewTextAndCursor(v, r.ResponseHeaders)
+
+	a.PrintBody(g)
+
 }
 
 func (a *App) ParseArgs(g *gocui.Gui) error {
 	a.Layout(g)
+	g.SetCurrentView(VIEWS[a.viewIndex])
 	vheader, _ := g.View("headers")
 	vheader.Clear()
 	vget, _ := g.View("get")
@@ -425,7 +551,7 @@ func createApp(g *gocui.Gui) *App {
 	g.Cursor = true
 	g.BgColor = gocui.ColorDefault
 	g.FgColor = gocui.ColorDefault
-	a := &App{}
+	a := &App{history: make([]*Request, 0, 15)}
 	a.SetKeys(g)
 	return a
 }
@@ -481,6 +607,7 @@ Key bindings:
  ctrl+r         Send request
  tab, ctrl+j    Next window
  ctrl+k         Previous window
+ ctrl+h         Show history
  pageUp         Scroll up the current window
  pageDown       Scroll down the current window`,
 	)
