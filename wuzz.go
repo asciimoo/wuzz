@@ -431,10 +431,10 @@ func (a *App) ToggleHistory(g *gocui.Gui, _ *gocui.View) error {
 		height = maxY - 1
 	}
 	width := 100
-	if width > maxX-2 {
-		width = maxX - 2
+	if width > maxX-4 {
+		width = maxX - 4
 	}
-	if history, err = g.SetView("history", maxX/2-width/2-1, maxY/2-height/2-1, maxX/2+width/2+1, maxY/2+height/2+1); err != nil {
+	if history, err = g.SetView("history", maxX/2-width/2-1, maxY/2-height/2-1, maxX/2+width/2, maxY/2+height/2+1); err != nil {
 		if err != gocui.ErrUnknownView {
 			return nil
 		}
@@ -447,8 +447,18 @@ func (a *App) ToggleHistory(g *gocui.Gui, _ *gocui.View) error {
 			setViewTextAndCursor(history, "[!] No items in history")
 			return nil
 		}
-		for i, h := range a.history {
-			fmt.Fprintf(history, "[%02d] %v\n", i, h.Url)
+		for i, r := range a.history {
+			req_str := fmt.Sprintf("[%02d] %v %v", i, r.Method, r.Url)
+			if r.GetParams != "" {
+				req_str += fmt.Sprintf("?%v", strings.Replace(r.GetParams, "\n", "&", -1))
+			}
+			if r.Data != "" {
+				req_str += fmt.Sprintf(" %v", strings.Replace(r.Data, "\n", "&", -1))
+			}
+			if r.Headers != "" {
+				req_str += fmt.Sprintf(" %v", strings.Replace(r.Headers, "\n", ";", -1))
+			}
+			fmt.Fprintln(history, req_str)
 		}
 		g.SetViewOnTop("history")
 		g.SetCurrentView("history")
