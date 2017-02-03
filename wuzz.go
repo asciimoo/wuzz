@@ -26,8 +26,8 @@ var TRANSPORT *http.Transport = &http.Transport{}
 
 var VIEWS []string = []string{
 	"url",
-	"method",
 	"get",
+	"method",
 	"data",
 	"headers",
 	"response-headers",
@@ -83,7 +83,15 @@ func (a *App) Layout(g *gocui.Gui) error {
 		v.Editable = true
 		setViewTextAndCursor(v, "https://")
 	}
-	if v, err := g.SetView("method", 0, 3, splitX, 5); err != nil {
+	if v, err := g.SetView("get", 0, 3, splitX, splitY+1); err != nil {
+		if err != gocui.ErrUnknownView {
+			return err
+		}
+		setViewDefaults(v)
+		v.Editable = true
+		v.Title = "URL params"
+	}
+	if v, err := g.SetView("method", 0, splitY+1, splitX, splitY+3); err != nil {
 		if err != gocui.ErrUnknownView {
 			return err
 		}
@@ -91,14 +99,6 @@ func (a *App) Layout(g *gocui.Gui) error {
 		v.Editable = true
 		v.Title = "Method"
 		setViewTextAndCursor(v, "GET")
-	}
-	if v, err := g.SetView("get", 0, 5, splitX, splitY+3); err != nil {
-		if err != gocui.ErrUnknownView {
-			return err
-		}
-		setViewDefaults(v)
-		v.Editable = true
-		v.Title = "URL params"
 	}
 	if v, err := g.SetView("data", 0, 3+splitY, splitX, 2*splitY+3); err != nil {
 		if err != gocui.ErrUnknownView {
@@ -604,12 +604,12 @@ Interactive cli tool for HTTP inspection
 Usage: wuzz [-H|--header=HEADER]... [-D|--data=POST_DATA] [-t|--timeout=MSECS]  [URL]
 
 Key bindings:
- ctrl+r         Send request
- tab, ctrl+j    Next window
- ctrl+k         Previous window
- ctrl+h         Show history
- pageUp         Scroll up the current window
- pageDown       Scroll down the current window`,
+ ctrl+r       Send request
+ tab, ctrl+j  Next window
+ ctrl+k       Previous window
+ ctrl+h       Show history
+ pageUp       Scroll up the current window
+ pageDown     Scroll down the current window`,
 	)
 }
 
