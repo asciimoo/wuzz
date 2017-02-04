@@ -30,9 +30,9 @@ var VIEWS []string = []string{
 	"method",
 	"data",
 	"headers",
+	"search",
 	"response-headers",
 	"response-body",
-	"search",
 }
 
 type Request struct {
