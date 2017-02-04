@@ -52,6 +52,13 @@ type App struct {
 	history      []*Request
 }
 
+type ViewEditor struct {
+	app           *App
+	g             *gocui.Gui
+	backTabEscape bool
+	origEditor    gocui.Editor
+}
+
 type SearchEditor struct {
 	app *App
 	g   *gocui.Gui
@@ -60,6 +67,25 @@ type SearchEditor struct {
 func init() {
 	TRANSPORT.DisableCompression = true
 	CLIENT.Transport = TRANSPORT
+}
+
+func (e *ViewEditor) Edit(v *gocui.View, key gocui.Key, ch rune, mod gocui.Modifier) {
+	// handle back-tab (\033[Z) sequence
+	if e.backTabEscape {
+		if ch == 'Z' {
+			e.app.PrevView(e.g, nil)
+			e.backTabEscape = false
+			return
+		} else {
+			e.origEditor.Edit(v, 0, '[', gocui.ModAlt)
+		}
+	}
+	if ch == '[' && mod == gocui.ModAlt {
+		e.backTabEscape = true
+		return
+	}
+
+	e.origEditor.Edit(v, key, ch, mod)
 }
 
 func (e *SearchEditor) Edit(v *gocui.View, key gocui.Key, ch rune, mod gocui.Modifier) {
@@ -122,6 +148,10 @@ func (a *App) Layout(g *gocui.Gui) error {
 		}
 		setViewDefaults(v)
 		v.Title = "Response headers"
+		v.Editable = true
+		v.Editor = &ViewEditor{a, g, false, gocui.EditorFunc(func(v *gocui.View, key gocui.Key, ch rune, mod gocui.Modifier) {
+			return
+		})}
 	}
 	if v, err := g.SetView("response-body", splitX, 3+splitY, maxX-1, maxY-2); err != nil {
 		if err != gocui.ErrUnknownView {
@@ -129,6 +159,10 @@ func (a *App) Layout(g *gocui.Gui) error {
 		}
 		setViewDefaults(v)
 		v.Title = "Response body"
+		v.Editable = true
+		v.Editor = &ViewEditor{a, g, false, gocui.EditorFunc(func(v *gocui.View, key gocui.Key, ch rune, mod gocui.Modifier) {
+			return
+		})}
 	}
 	if v, err := g.SetView("prompt", -1, maxY-2, 7, maxY); err != nil {
 		if err != gocui.ErrUnknownView {
@@ -557,13 +591,12 @@ func (a *App) ParseArgs(g *gocui.Gui) error {
 	return nil
 }
 
-func createApp(g *gocui.Gui) *App {
+func initApp(a *App, g *gocui.Gui) {
 	g.Cursor = true
+	g.InputEsc = false
 	g.BgColor = gocui.ColorDefault
 	g.FgColor = gocui.ColorDefault
-	a := &App{history: make([]*Request, 0, 15)}
 	a.SetKeys(g)
-	return a
 }
 
 func getViewValue(g *gocui.Gui, name string) string {
@@ -613,12 +646,12 @@ func help() {
 Usage: wuzz [-H|--header=HEADER]... [-D|--data=POST_DATA] [-t|--timeout=MSECS] [URL]
 
 Key bindings:
-  ctrl+r       Send request
-  tab, ctrl+j  Next window
-  ctrl+k       Previous window
-  ctrl+h       Show history
-  pageUp       Scroll up the current window
-  pageDown     Scroll down the current window`,
+  ctrl+r              Send request
+  tab, ctrl+j         Next window
+  shift+tab, ctrl+k   Previous window
+  ctrl+h              Show history
+  pageUp              Scroll up the current window
+  pageDown            Scroll down the current window`,
 	)
 }
 
@@ -635,7 +668,13 @@ func main() {
 	}
 	defer g.Close()
 
-	app := createApp(g)
+	app := &App{history: make([]*Request, 0, 31)}
+
+	// overwrite default editor
+	gocui.DefaultEditor = &ViewEditor{app, g, false, gocui.DefaultEditor}
+
+	initApp(app, g)
+
 	app.ParseArgs(g)
 
 	if err := g.MainLoop(); err != nil && err != gocui.ErrQuit {
