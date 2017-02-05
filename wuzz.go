@@ -407,6 +407,7 @@ func (a *App) SetKeys(g *gocui.Gui) {
 	g.SetKeybinding("", gocui.KeyCtrlK, gocui.ModNone, a.PrevView)
 
 	g.SetKeybinding("", gocui.KeyCtrlH, gocui.ModNone, a.ToggleHistory)
+	g.SetKeybinding("", 'h', gocui.ModAlt, a.ToggleHistory)
 
 	g.SetKeybinding("", gocui.KeyCtrlR, gocui.ModNone, a.SubmitRequest)
 	g.SetKeybinding("url", gocui.KeyEnter, gocui.ModNone, a.SubmitRequest)
@@ -668,7 +669,7 @@ Key bindings:
   ctrl+r              Send request
   tab, ctrl+j         Next window
   shift+tab, ctrl+k   Previous window
-  ctrl+h              Show history
+  ctrl+h, alt+h       Show history
   pageUp              Scroll up the current window
   pageDown            Scroll down the current window`,
 	)
