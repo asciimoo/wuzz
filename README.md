@@ -24,6 +24,7 @@ $ "$GOPATH/bin/wuzz" --help
 * Response specific filters (xpath, etc..)
 * Binary respone view
 * Better navigation
+* File upload
 
 
 ## Bugs
