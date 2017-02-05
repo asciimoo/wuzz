@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"compress/gzip"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -304,6 +305,15 @@ func (a *App) SubmitRequest(g *gocui.Gui, _ *gocui.View) error {
 		bodyBytes, err := ioutil.ReadAll(response.Body)
 		if err == nil {
 			r.RawResponseBody = bodyBytes
+		}
+
+		// pretty-print json
+		if strings.Contains(response.Header.Get("Content-Type"), "application/json") {
+			var prettyJSON bytes.Buffer
+			err := json.Indent(&prettyJSON, r.RawResponseBody, "", "  ")
+			if err == nil {
+				r.RawResponseBody = prettyJSON.Bytes()
+			}
 		}
 
 		// add to history
