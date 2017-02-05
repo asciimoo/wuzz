@@ -544,7 +544,10 @@ func (a *App) restoreRequest(g *gocui.Gui, idx int) {
 func (a *App) ParseArgs(g *gocui.Gui) error {
 	a.Layout(g)
 	g.SetCurrentView(VIEWS[a.viewIndex])
-	vheader, _ := g.View("headers")
+	vheader, err := g.View("headers")
+	if err != nil {
+		return errors.New("Too small screen")
+	}
 	vheader.Clear()
 	vget, _ := g.View("get")
 	vget.Clear()
@@ -676,7 +679,6 @@ func main() {
 	if err != nil {
 		log.Panicln(err)
 	}
-	defer g.Close()
 
 	app := &App{history: make([]*Request, 0, 31)}
 
@@ -685,7 +687,15 @@ func main() {
 
 	initApp(app, g)
 
-	app.ParseArgs(g)
+	err = app.ParseArgs(g)
+
+	if err != nil {
+		g.Close()
+		fmt.Println("Error!", err)
+		os.Exit(1)
+	}
+
+	defer g.Close()
 
 	if err := g.MainLoop(); err != nil && err != gocui.ErrQuit {
 		log.Panicln(err)
