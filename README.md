@@ -18,17 +18,18 @@ $ "$GOPATH/bin/wuzz" --help
 
 ### Commands
 
-Keybinding                            | Description
---------------------------------------|------------------------------------------------------------
-<kbd>Ret</kbd>, <kbd>Ctrl+R</kbd>     | Send request.
-<kbd>Ctrl+C</kbd>                     | Quit.
-<kbd>Ctrl+K</kbd>                     | Previous view.
-<kbd>Ctlr+J</kbd>, <kbd>Tab</kbd>     | Next view.
-<kbd>Ctrl+H</kbd>                     | Toggle history.
-<kbd>Down</kbd>                       | Move down one view line.
-<kbd>Up</kbd>                         | Move up one view line.
-<kbd>Page down</kbd>                  | Move down one view page.
-<kbd>Page up</kbd>                    | Move up one view page.
+Keybinding                              | Description
+----------------------------------------|------------------------------------------------------------
+<kbd>Ctrl+R</kbd>                       | Send request.
+<kbd>Ret</kbd>                          | Send request from window URL only.
+<kbd>Ctrl+C</kbd>                       | Quit.
+<kbd>Ctrl+K</kbd>, <kbd>Shift+Tab</kbd> | Previous view.
+<kbd>Ctlr+J</kbd>, <kbd>Tab</kbd>       | Next view.
+<kbd>Ctrl+H</kbd>                       | Toggle history.
+<kbd>Down</kbd>                         | Move down one view line.
+<kbd>Up</kbd>                           | Move up one view line.
+<kbd>Page down</kbd>                    | Move down one view page.
+<kbd>Page up</kbd>                      | Move up one view page.
 
 ## TODO
 
