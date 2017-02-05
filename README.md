@@ -25,7 +25,7 @@ Keybinding                              | Description
 <kbd>Ctrl+C</kbd>                       | Quit.
 <kbd>Ctrl+K</kbd>, <kbd>Shift+Tab</kbd> | Previous view.
 <kbd>Ctlr+J</kbd>, <kbd>Tab</kbd>       | Next view.
-<kbd>Ctrl+H</kbd>                       | Toggle history.
+<kbd>Ctrl+H</kbd>, <kbd>Alt+H</kbd>     | Toggle history.
 <kbd>Down</kbd>                         | Move down one view line.
 <kbd>Up</kbd>                           | Move up one view line.
 <kbd>Page down</kbd>                    | Move down one view page.
