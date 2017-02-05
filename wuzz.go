@@ -587,9 +587,15 @@ func (a *App) ParseArgs(g *gocui.Gui) error {
 			CLIENT.Timeout = time.Duration(timeout) * time.Millisecond
 		default:
 			u := os.Args[arg_index]
+			if strings.Index(u, "http://") != 0 && strings.Index(u, "https://") != 0 {
+				u = "http://" + u
+			}
 			parsed_url, err := url.Parse(u)
 			if err != nil || parsed_url.Host == "" {
 				return errors.New("Invalid url")
+			}
+			if parsed_url.Path == "" {
+				parsed_url.Path = "/"
 			}
 			vurl, _ := g.View("url")
 			vurl.Clear()
