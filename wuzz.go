@@ -33,6 +33,18 @@ var METHODS []string = []string{
 	http.MethodHead,
 }
 
+var SHORTCUTS map[gocui.Key]string = map[gocui.Key]string{
+	// gocui.KeyF1 reserved for help popup
+	gocui.KeyF2: "url",
+	gocui.KeyF3: "get",
+	gocui.KeyF4: "method",
+	gocui.KeyF5: "data",
+	gocui.KeyF6: "headers",
+	gocui.KeyF7: "search",
+	gocui.KeyF8: "response-headers",
+	gocui.KeyF9: "response-body",
+}
+
 var CLIENT *http.Client = &http.Client{
 	Timeout: time.Duration(5 * time.Second),
 }
@@ -65,6 +77,7 @@ type Request struct {
 type App struct {
 	viewIndex    int
 	historyIndex int
+	currentPopup string
 	history      []*Request
 }
 
@@ -211,8 +224,19 @@ func (a *App) PrevView(g *gocui.Gui, v *gocui.View) error {
 }
 
 func (a *App) setView(g *gocui.Gui) error {
+	a.closePopup(g, a.currentPopup)
 	_, err := g.SetCurrentView(VIEWS[a.viewIndex])
 	return err
+}
+
+func (a *App) setViewByName(g *gocui.Gui, name string) error {
+	for i, v := range VIEWS {
+		if v == name {
+			a.viewIndex = i
+			return a.setView(g)
+		}
+	}
+	return fmt.Errorf("View not found")
 }
 
 func popup(g *gocui.Gui, msg string) {
@@ -422,6 +446,16 @@ func (a *App) SetKeys(g *gocui.Gui) {
 	g.SetKeybinding("", gocui.KeyCtrlK, gocui.ModNone, a.PrevView)
 	g.SetKeybinding("method", gocui.KeyEnter, gocui.ModNone, a.ToggleMethodlist)
 
+	// Cycle for each SHORTCUTS
+	for key, view := range SHORTCUTS {
+		handler := func(name string) func(*gocui.Gui, *gocui.View) error {
+			return func(g *gocui.Gui, _ *gocui.View) error {
+				return a.setViewByName(g, name)
+			}
+		}
+		g.SetKeybinding("", key, gocui.ModNone, handler(view))
+	}
+
 	if runtime.GOOS != "windows" {
 		g.SetKeybinding("", gocui.KeyCtrlH, gocui.ModNone, a.ToggleHistory)
 	}
@@ -488,31 +522,26 @@ func (a *App) SetKeys(g *gocui.Gui) {
 		_, cy := v.Cursor()
 		v, _ = g.View("method")
 		setViewTextAndCursor(v, METHODS[cy])
-		a.closeMethodlist(g)
+		a.closePopup(g, "method-list")
 		return nil
 	})
 }
 
-func (a *App) closeHistory(g *gocui.Gui) {
-	_, err := g.View("history")
+func (a *App) closePopup(g *gocui.Gui, viewname string) {
+	_, err := g.View(viewname)
 	if err == nil {
-		g.DeleteView("history")
-		g.SetCurrentView(VIEWS[a.viewIndex%len(VIEWS)])
-		g.Cursor = true
-	}
-}
-
-func (a *App) closeMethodlist(g *gocui.Gui) {
-	_, err := g.View("method-list")
-	if err == nil {
-		g.DeleteView("method-list")
+		a.currentPopup = ""
+		g.DeleteView(viewname)
 		g.SetCurrentView(VIEWS[a.viewIndex%len(VIEWS)])
 		g.Cursor = true
 	}
 }
 
 // CreatePopupView create a popup like view
-func CreatePopupView(name string, width, height int, g *gocui.Gui) (v *gocui.View, err error) {
+func (a *App) CreatePopupView(name string, width, height int, g *gocui.Gui) (v *gocui.View, err error) {
+	// Remove any concurrent popup
+	a.closePopup(g, a.currentPopup)
+
 	g.Cursor = false
 	maxX, maxY := g.Size()
 	if height > maxY-1 {
@@ -530,17 +559,18 @@ func CreatePopupView(name string, width, height int, g *gocui.Gui) (v *gocui.Vie
 	v.Frame = true
 	v.Highlight = true
 	v.SelFgColor = gocui.ColorYellow
-
+	a.currentPopup = name
 	return
 }
 
 func (a *App) ToggleHistory(g *gocui.Gui, _ *gocui.View) (err error) {
-	_, err = g.View("history")
-	if err == nil {
-		a.closeHistory(g)
-		return nil
+	// Destroy if present
+	if a.currentPopup == "history" {
+		a.closePopup(g, "history")
+		return
 	}
-	history, err := CreatePopupView("history", 100, len(a.history), g)
+
+	history, err := a.CreatePopupView("history", 100, len(a.history), g)
 	if err != nil {
 		return
 	}
@@ -571,13 +601,13 @@ func (a *App) ToggleHistory(g *gocui.Gui, _ *gocui.View) (err error) {
 }
 
 func (a *App) ToggleMethodlist(g *gocui.Gui, _ *gocui.View) (err error) {
-	_, err = g.View("method-list")
-	if err == nil {
-		a.closeMethodlist(g)
-		return nil
+	// Destroy if present
+	if a.currentPopup == "method-list" {
+		a.closePopup(g, "method-list")
+		return
 	}
 
-	method, err := CreatePopupView("method-list", 50, len(METHODS), g)
+	method, err := a.CreatePopupView("method-list", 50, len(METHODS), g)
 	if err != nil {
 		return
 	}
@@ -600,7 +630,7 @@ func (a *App) restoreRequest(g *gocui.Gui, idx int) {
 	if idx < 0 || idx >= len(a.history) {
 		return
 	}
-	a.closeHistory(g)
+	a.closePopup(g, "history")
 	a.historyIndex = idx
 	r := a.history[idx]
 
