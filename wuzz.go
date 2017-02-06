@@ -63,6 +63,9 @@ var VIEWS []string = []string{
 	"response-body",
 }
 
+const MIN_WIDTH = 60
+const MIN_HEIGHT = 20
+
 type Request struct {
 	Url             string
 	Method          string
@@ -127,6 +130,22 @@ func (e *SearchEditor) Edit(v *gocui.View, key gocui.Key, ch rune, mod gocui.Mod
 
 func (a *App) Layout(g *gocui.Gui) error {
 	maxX, maxY := g.Size()
+	if maxX < MIN_WIDTH || maxY < MIN_HEIGHT {
+		if v, err := g.SetView("error", 0, 0, maxX-1, maxY-1); err != nil {
+			if err != gocui.ErrUnknownView {
+				return err
+			}
+			setViewDefaults(v)
+			v.Title = "Error"
+			g.Cursor = false
+			fmt.Fprintln(v, "Terminal is too small")
+		}
+		return nil
+	}
+	if _, err := g.View("error"); err == nil {
+		g.DeleteView("error")
+		a.setView(g)
+	}
 	splitX := int(0.3 * float32(maxX))
 	splitY := int(0.25 * float32(maxY-3))
 	if v, err := g.SetView("url", 0, 0, maxX-1, 3); err != nil {
