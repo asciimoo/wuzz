@@ -700,6 +700,11 @@ func (a *App) ParseArgs(g *gocui.Gui) error {
 				return errors.New("Invalid timeout value")
 			}
 			CLIENT.Timeout = time.Duration(timeout) * time.Millisecond
+		case "--compressed":
+			vh, _ := g.View("headers")
+			if strings.Index(getViewValue(g, "headers"), "Accept-Encoding") == -1 {
+				fmt.Fprintln(vh, "Accept-Encoding: gzip, deflate")
+			}
 		default:
 			u := os.Args[arg_index]
 			if strings.Index(u, "http://") != 0 && strings.Index(u, "https://") != 0 {
