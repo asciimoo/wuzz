@@ -21,6 +21,18 @@ import (
 	"github.com/jroimartin/gocui"
 )
 
+var METHODS []string = []string{
+	http.MethodGet,
+	http.MethodPost,
+	http.MethodPut,
+	http.MethodDelete,
+	http.MethodPatch,
+	http.MethodOptions,
+	http.MethodTrace,
+	http.MethodConnect,
+	http.MethodHead,
+}
+
 var CLIENT *http.Client = &http.Client{
 	Timeout: time.Duration(5 * time.Second),
 }
@@ -408,6 +420,7 @@ func (a *App) SetKeys(g *gocui.Gui) {
 	g.SetKeybinding("", gocui.KeyTab, gocui.ModNone, a.NextView)
 	g.SetKeybinding("", gocui.KeyCtrlJ, gocui.ModNone, a.NextView)
 	g.SetKeybinding("", gocui.KeyCtrlK, gocui.ModNone, a.PrevView)
+	g.SetKeybinding("method", gocui.KeyEnter, gocui.ModNone, a.ToggleMethodlist)
 
 	if runtime.GOOS != "windows" {
 		g.SetKeybinding("", gocui.KeyCtrlH, gocui.ModNone, a.ToggleHistory)
@@ -456,12 +469,43 @@ func (a *App) SetKeys(g *gocui.Gui) {
 		a.restoreRequest(g, cy)
 		return nil
 	})
+
+	// history keybindings
+	g.SetKeybinding("method-list", gocui.KeyArrowDown, gocui.ModNone, func(g *gocui.Gui, v *gocui.View) error {
+		cx, cy := v.Cursor()
+		v.SetCursor(cx, cy+1)
+		return nil
+	})
+	g.SetKeybinding("method-list", gocui.KeyArrowUp, gocui.ModNone, func(g *gocui.Gui, v *gocui.View) error {
+		cx, cy := v.Cursor()
+		if cy > 0 {
+			cy -= 1
+		}
+		v.SetCursor(cx, cy)
+		return nil
+	})
+	g.SetKeybinding("method-list", gocui.KeyEnter, gocui.ModNone, func(g *gocui.Gui, v *gocui.View) error {
+		_, cy := v.Cursor()
+		v, _ = g.View("method")
+		setViewTextAndCursor(v, METHODS[cy])
+		a.closeMethodlist(g)
+		return nil
+	})
 }
 
 func (a *App) closeHistory(g *gocui.Gui) {
 	_, err := g.View("history")
 	if err == nil {
 		g.DeleteView("history")
+		g.SetCurrentView(VIEWS[a.viewIndex%len(VIEWS)])
+		g.Cursor = true
+	}
+}
+
+func (a *App) closeMethodlist(g *gocui.Gui) {
+	_, err := g.View("method-list")
+	if err == nil {
+		g.DeleteView("method-list")
 		g.SetCurrentView(VIEWS[a.viewIndex%len(VIEWS)])
 		g.Cursor = true
 	}
@@ -513,6 +557,47 @@ func (a *App) ToggleHistory(g *gocui.Gui, _ *gocui.View) error {
 		g.SetViewOnTop("history")
 		g.SetCurrentView("history")
 		history.SetCursor(0, a.historyIndex)
+	}
+	return nil
+}
+
+func (a *App) ToggleMethodlist(g *gocui.Gui, _ *gocui.View) error {
+	_, err := g.View("method-list")
+	if err == nil {
+		a.closeMethodlist(g)
+		return nil
+	}
+	g.Cursor = false
+	var method *gocui.View
+	maxX, maxY := g.Size()
+	height := len(METHODS)
+	if height > maxY-1 {
+		height = maxY - 1
+	}
+	width := 50
+	if width > maxX-4 {
+		width = maxX - 4
+	}
+	if method, err = g.SetView("method-list", maxX/2-width/2-1, maxY/2-height/2-1, maxX/2+width/2, maxY/2+height/2+1); err != nil {
+		if err != gocui.ErrUnknownView {
+			return nil
+		}
+		method.Wrap = false
+		method.Frame = true
+		method.Title = "Methods"
+		method.Highlight = true
+		method.SelFgColor = gocui.ColorYellow
+
+		cur := getViewValue(g, "method")
+
+		for i, r := range METHODS {
+			fmt.Fprintln(method, r)
+			if cur == r {
+				method.SetCursor(0, i)
+			}
+		}
+		g.SetViewOnTop("method-list")
+		g.SetCurrentView("method-list")
 	}
 	return nil
 }
