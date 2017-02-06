@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"compress/gzip"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -424,15 +425,16 @@ func (a *App) PrintBody(g *gocui.Gui) {
 		}
 		vrb, _ := g.View("response-body")
 		vrb.Clear()
-		if strings.Index(req.ContentType, "text") == -1 && strings.Index(req.ContentType, "application") == -1 {
-			vrb.Title = "Response body"
-			fmt.Fprint(vrb, "[binary content]")
-			return nil
-		}
+		is_binary := strings.Index(req.ContentType, "text") == -1 && strings.Index(req.ContentType, "application") == -1
 		search_text := getViewValue(g, "search")
-		if search_text == "" {
+		if search_text == "" || is_binary {
 			vrb.Title = "Response body"
-			vrb.Write(req.RawResponseBody)
+			if is_binary {
+				vrb.Title += " [binary content]"
+				fmt.Fprint(vrb, hex.Dump(req.RawResponseBody))
+			} else {
+				vrb.Write(req.RawResponseBody)
+			}
 			return nil
 		}
 		search_re, err := regexp.Compile(search_text)
