@@ -511,95 +511,89 @@ func (a *App) closeMethodlist(g *gocui.Gui) {
 	}
 }
 
-func (a *App) ToggleHistory(g *gocui.Gui, _ *gocui.View) error {
-	_, err := g.View("history")
+// CreatePopupView create a popup like view
+func CreatePopupView(name string, width, height int, g *gocui.Gui) (v *gocui.View, err error) {
+	g.Cursor = false
+	maxX, maxY := g.Size()
+	if height > maxY-1 {
+		height = maxY - 1
+	}
+	if width > maxX-4 {
+		width = maxX - 4
+	}
+	v, err = g.SetView(name, maxX/2-width/2-1, maxY/2-height/2-1, maxX/2+width/2, maxY/2+height/2+1)
+	if err != nil && err != gocui.ErrUnknownView {
+		return
+	}
+	err = nil
+	v.Wrap = false
+	v.Frame = true
+	v.Highlight = true
+	v.SelFgColor = gocui.ColorYellow
+
+	return
+}
+
+func (a *App) ToggleHistory(g *gocui.Gui, _ *gocui.View) (err error) {
+	_, err = g.View("history")
 	if err == nil {
 		a.closeHistory(g)
 		return nil
 	}
-	g.Cursor = false
-	var history *gocui.View
-	maxX, maxY := g.Size()
-	height := len(a.history)
-	if height > maxY-1 {
-		height = maxY - 1
+	history, err := CreatePopupView("history", 100, len(a.history), g)
+	if err != nil {
+		return
 	}
-	width := 100
-	if width > maxX-4 {
-		width = maxX - 4
+
+	history.Title = "History"
+
+	if len(a.history) == 0 {
+		setViewTextAndCursor(history, "[!] No items in history")
+		return
 	}
-	if history, err = g.SetView("history", maxX/2-width/2-1, maxY/2-height/2-1, maxX/2+width/2, maxY/2+height/2+1); err != nil {
-		if err != gocui.ErrUnknownView {
-			return nil
+	for i, r := range a.history {
+		req_str := fmt.Sprintf("[%02d] %v %v", i, r.Method, r.Url)
+		if r.GetParams != "" {
+			req_str += fmt.Sprintf("?%v", strings.Replace(r.GetParams, "\n", "&", -1))
 		}
-		history.Wrap = false
-		history.Frame = true
-		history.Title = "History"
-		history.Highlight = true
-		history.SelFgColor = gocui.ColorYellow
-		if len(a.history) == 0 {
-			setViewTextAndCursor(history, "[!] No items in history")
-			return nil
+		if r.Data != "" {
+			req_str += fmt.Sprintf(" %v", strings.Replace(r.Data, "\n", "&", -1))
 		}
-		for i, r := range a.history {
-			req_str := fmt.Sprintf("[%02d] %v %v", i, r.Method, r.Url)
-			if r.GetParams != "" {
-				req_str += fmt.Sprintf("?%v", strings.Replace(r.GetParams, "\n", "&", -1))
-			}
-			if r.Data != "" {
-				req_str += fmt.Sprintf(" %v", strings.Replace(r.Data, "\n", "&", -1))
-			}
-			if r.Headers != "" {
-				req_str += fmt.Sprintf(" %v", strings.Replace(r.Headers, "\n", ";", -1))
-			}
-			fmt.Fprintln(history, req_str)
+		if r.Headers != "" {
+			req_str += fmt.Sprintf(" %v", strings.Replace(r.Headers, "\n", ";", -1))
 		}
-		g.SetViewOnTop("history")
-		g.SetCurrentView("history")
-		history.SetCursor(0, a.historyIndex)
+		fmt.Fprintln(history, req_str)
 	}
-	return nil
+	g.SetViewOnTop("history")
+	g.SetCurrentView("history")
+	history.SetCursor(0, a.historyIndex)
+	return
 }
 
-func (a *App) ToggleMethodlist(g *gocui.Gui, _ *gocui.View) error {
-	_, err := g.View("method-list")
+func (a *App) ToggleMethodlist(g *gocui.Gui, _ *gocui.View) (err error) {
+	_, err = g.View("method-list")
 	if err == nil {
 		a.closeMethodlist(g)
 		return nil
 	}
-	g.Cursor = false
-	var method *gocui.View
-	maxX, maxY := g.Size()
-	height := len(METHODS)
-	if height > maxY-1 {
-		height = maxY - 1
-	}
-	width := 50
-	if width > maxX-4 {
-		width = maxX - 4
-	}
-	if method, err = g.SetView("method-list", maxX/2-width/2-1, maxY/2-height/2-1, maxX/2+width/2, maxY/2+height/2+1); err != nil {
-		if err != gocui.ErrUnknownView {
-			return nil
-		}
-		method.Wrap = false
-		method.Frame = true
-		method.Title = "Methods"
-		method.Highlight = true
-		method.SelFgColor = gocui.ColorYellow
 
-		cur := getViewValue(g, "method")
-
-		for i, r := range METHODS {
-			fmt.Fprintln(method, r)
-			if cur == r {
-				method.SetCursor(0, i)
-			}
-		}
-		g.SetViewOnTop("method-list")
-		g.SetCurrentView("method-list")
+	method, err := CreatePopupView("method-list", 50, len(METHODS), g)
+	if err != nil {
+		return
 	}
-	return nil
+	method.Title = "Methods"
+
+	cur := getViewValue(g, "method")
+
+	for i, r := range METHODS {
+		fmt.Fprintln(method, r)
+		if cur == r {
+			method.SetCursor(0, i)
+		}
+	}
+	g.SetViewOnTop("method-list")
+	g.SetCurrentView("method-list")
+	return
 }
 
 func (a *App) restoreRequest(g *gocui.Gui, idx int) {
