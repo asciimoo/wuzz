@@ -12,6 +12,7 @@ import (
 	"net/url"
 	"os"
 	"regexp"
+	"runtime"
 	"sort"
 	"strconv"
 	"strings"
@@ -406,7 +407,9 @@ func (a *App) SetKeys(g *gocui.Gui) {
 	g.SetKeybinding("", gocui.KeyCtrlJ, gocui.ModNone, a.NextView)
 	g.SetKeybinding("", gocui.KeyCtrlK, gocui.ModNone, a.PrevView)
 
-	g.SetKeybinding("", gocui.KeyCtrlH, gocui.ModNone, a.ToggleHistory)
+	if runtime.GOOS != "windows" {
+		g.SetKeybinding("", gocui.KeyCtrlH, gocui.ModNone, a.ToggleHistory)
+	}
 	g.SetKeybinding("", 'h', gocui.ModAlt, a.ToggleHistory)
 
 	g.SetKeybinding("", gocui.KeyCtrlR, gocui.ModNone, a.SubmitRequest)
