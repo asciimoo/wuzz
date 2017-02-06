@@ -145,6 +145,7 @@ func (a *App) Layout(g *gocui.Gui) error {
 	}
 	if _, err := g.View("error"); err == nil {
 		g.DeleteView("error")
+		g.Cursor = true
 		a.setView(g)
 	}
 	splitX := int(0.3 * float32(maxX))
