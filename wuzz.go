@@ -24,7 +24,9 @@ import (
 var CLIENT *http.Client = &http.Client{
 	Timeout: time.Duration(5 * time.Second),
 }
-var TRANSPORT *http.Transport = &http.Transport{}
+var TRANSPORT *http.Transport = &http.Transport{
+	Proxy: http.ProxyFromEnvironment,
+}
 
 var VIEWS []string = []string{
 	"url",
