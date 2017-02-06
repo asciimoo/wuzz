@@ -31,6 +31,7 @@ Keybinding                              | Description
 <kbd>Page down</kbd>                    | Move down one view page.
 <kbd>Page up</kbd>                      | Move up one view page.
 
+
 ## TODO
 
 * Colors
@@ -39,6 +40,8 @@ Keybinding                              | Description
 * Binary respone view
 * Better navigation
 * File upload
+* Autocompletion
+* Tests
 
 
 ## Bugs
