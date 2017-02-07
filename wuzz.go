@@ -495,7 +495,7 @@ func (a *App) SetKeys(g *gocui.Gui) {
 
 	g.SetKeybinding("", gocui.KeyCtrlR, gocui.ModNone, a.SubmitRequest)
 	g.SetKeybinding("url", gocui.KeyEnter, gocui.ModNone, a.SubmitRequest)
-	g.SetKeybinding("", gocui.KeyCtrlE, gocui.ModNone, a.ExportAsCURLCommand)
+	g.SetKeybinding("", gocui.KeyCtrlU, gocui.ModNone, a.ExportAsCURLCommand)
 
 	// responses common keybindings
 	for _, view := range []string{"response-body", "response-headers"} {
@@ -942,7 +942,7 @@ Usage: wuzz [-H|--header=HEADER]... [-D|--data=POST_DATA] [-t|--timeout=MSECS] [
 Key bindings:
   ctrl+r              Send request
   ctrl+s              Save response
-  ctrl+e              Export as cURL command
+  ctrl+u              Export as cURL command
   tab, ctrl+j         Next window
   shift+tab, ctrl+k   Previous window
   ctrl+h, alt+h       Show history
