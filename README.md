@@ -19,7 +19,14 @@ $ "$GOPATH/bin/wuzz" --help
 ### Commands
 
 Keybinding                              | Description
-----------------------------------------|------------------------------------------------------------
+----------------------------------------|------------------------------------------------------------	gocui.KeyF2: "url",
+<kbd>F3</kbd>                           | URL
+<kbd>F4</kbd>                           | HTTP method
+<kbd>F5</kbd>                           | Request body
+<kbd>F6</kbd>                           | Headers
+<kbd>F7</kbd>                           | Search
+<kbd>F8</kbd>                           | Response headers
+<kbd>F9</kbd>                           | Response body
 <kbd>Ctrl+R</kbd>                       | Send request.
 <kbd>Ret</kbd>                          | Send request from window URL only.
 <kbd>Ctrl+C</kbd>                       | Quit.
