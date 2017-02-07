@@ -22,6 +22,38 @@ import (
 	"github.com/jroimartin/gocui"
 )
 
+type EditBinding struct {
+	  key gocui.Key
+	  handler func (*gocui.Gui, *gocui.View) error
+}
+
+func (b EditBinding) Key() gocui.Key {
+	  return b.key
+}
+
+func (b EditBinding) Handler() func (*gocui.Gui, *gocui.View) error {
+	  return b.handler
+}
+
+func GoToHome(g *gocui.Gui, v *gocui.View) error {
+	  var _, y = v.Cursor()
+	  return v.SetCursor(0, y)
+}
+
+func GoToEnd(g *gocui.Gui, v *gocui.View) error {
+	  var err error = nil
+	  var line = ""
+	  var _, y = v.Cursor()
+	  line, err = v.Line(y)
+	  if err != nil { return err }
+	  return v.SetCursor(len(line), y)
+}
+
+var URL_BINDING []EditBinding = []EditBinding {
+	  { gocui.KeyHome, GoToHome },
+	  { gocui.KeyEnd, GoToEnd },
+}
+
 var METHODS []string = []string{
 	http.MethodGet,
 	http.MethodPost,
@@ -476,6 +508,9 @@ func (a *App) SetKeys(g *gocui.Gui) {
 			}
 		}
 		g.SetKeybinding("", key, gocui.ModNone, handler(view))
+	}
+	for _, urlMapping := range URL_BINDING {
+		g.SetKeybinding("url", urlMapping.Key(), gocui.ModNone, urlMapping.Handler())
 	}
 
 	if runtime.GOOS != "windows" {
