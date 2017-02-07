@@ -326,11 +326,18 @@ func (a *App) SubmitRequest(g *gocui.Gui, _ *gocui.View) error {
 		r.Headers = getViewValue(g, "headers")
 		headers := strings.Split(r.Headers, "\n")
 		for _, header := range headers {
-			header_parts := strings.SplitN(header, ": ", 2)
-			if len(header_parts) != 2 {
-				continue
+			if header != "" {
+				header_parts := strings.SplitN(header, ": ", 2)
+				if len(header_parts) != 2 {
+					g.Execute(func(g *gocui.Gui) error {
+						vrb, _ := g.View("response-body")
+						fmt.Fprintf(vrb, "Invalid header: %v", header)
+						return nil
+					})
+					return nil
+				}
+				req.Header.Set(header_parts[0], header_parts[1])
 			}
-			req.Header.Set(header_parts[0], header_parts[1])
 		}
 
 		// do request
