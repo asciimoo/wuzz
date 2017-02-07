@@ -19,7 +19,7 @@ $ "$GOPATH/bin/wuzz" --help
 ### Commands
 
 Keybinding                              | Description
-----------------------------------------|------------------------------------------------------------
+----------------------------------------|------------------------------------------------------------	
 <kbd>Ctrl+R</kbd>                       | Send request.
 <kbd>Ret</kbd>                          | Send request from window URL only.
 <kbd>Ctrl+C</kbd>                       | Quit.
@@ -30,6 +30,14 @@ Keybinding                              | Description
 <kbd>Up</kbd>                           | Move up one view line.
 <kbd>Page down</kbd>                    | Move down one view page.
 <kbd>Page up</kbd>                      | Move up one view page.
+<kbd>F2</kbd>                           | Jump to URL
+<kbd>F3</kbd>                           | Jump to query parameters
+<kbd>F4</kbd>                           | Jump to HTTP method
+<kbd>F5</kbd>                           | Jump to request body
+<kbd>F6</kbd>                           | Jump to headers
+<kbd>F7</kbd>                           | Jump to search
+<kbd>F8</kbd>                           | Jump to response headers
+<kbd>F9</kbd>                           | Jump to response body
 
 
 ## TODO
