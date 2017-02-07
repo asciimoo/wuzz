@@ -490,6 +490,8 @@ func (a *App) SetKeys(g *gocui.Gui) {
 	}
 	g.SetKeybinding("", 'h', gocui.ModAlt, a.ToggleHistory)
 
+	g.SetKeybinding("", gocui.KeyCtrlS, gocui.ModNone, a.OpenSaveDialog)
+
 	g.SetKeybinding("", gocui.KeyCtrlR, gocui.ModNone, a.SubmitRequest)
 	g.SetKeybinding("url", gocui.KeyEnter, gocui.ModNone, a.SubmitRequest)
 
@@ -552,6 +554,48 @@ func (a *App) SetKeys(g *gocui.Gui) {
 		v, _ = g.View("method")
 		setViewTextAndCursor(v, METHODS[cy])
 		a.closePopup(g, "method-list")
+		return nil
+	})
+
+	g.SetKeybinding("save-dialog", gocui.KeyEnter, gocui.ModNone, func(g *gocui.Gui, v *gocui.View) error {
+		defer a.closePopup(g, "save-dialog")
+
+		saveLocation := getViewValue(g, "save-dialog")
+
+		if len(a.history) == 0 {
+			return nil
+		}
+		req := a.history[a.historyIndex]
+		if req.RawResponseBody == nil {
+			return nil
+		}
+
+		err := ioutil.WriteFile(saveLocation, req.RawResponseBody, 0644)
+
+		var saveResult string
+		if err == nil {
+			saveResult = "Response saved successfully."
+		} else {
+			saveResult = "Error saving response: " + err.Error()
+		}
+
+		saveResultPopup, err := a.CreatePopupView("save-result", len(saveResult), 1, g)
+		saveResultPopup.Title = "Save Result (press enter to close)"
+		setViewTextAndCursor(saveResultPopup, saveResult)
+
+		g.SetViewOnTop("save-result")
+		g.SetCurrentView("save-result")
+
+		return err
+	})
+
+	g.SetKeybinding("save-dialog", gocui.KeyCtrlQ, gocui.ModNone, func(g *gocui.Gui, v *gocui.View) error {
+		a.closePopup(g, "save-dialog")
+		return nil
+	})
+
+	g.SetKeybinding("save-result", gocui.KeyEnter, gocui.ModNone, func(g *gocui.Gui, v *gocui.View) error {
+		a.closePopup(g, "save-result")
 		return nil
 	})
 }
@@ -652,6 +696,32 @@ func (a *App) ToggleMethodlist(g *gocui.Gui, _ *gocui.View) (err error) {
 	}
 	g.SetViewOnTop("method-list")
 	g.SetCurrentView("method-list")
+	return
+}
+
+func (a *App) OpenSaveDialog(g *gocui.Gui, _ *gocui.View) (err error) {
+	dialog, err := a.CreatePopupView("save-dialog", 60, 1, g)
+	if err != nil {
+		return
+	}
+
+	g.Cursor = true
+
+	dialog.Title = "Save Response (enter to submit, ctrl+q to cancel)"
+	dialog.Editable = true
+	dialog.Wrap = false
+
+	currentDir, err := os.Getwd()
+	if err != nil {
+		currentDir = ""
+	}
+	currentDir += "/"
+
+	setViewTextAndCursor(dialog, currentDir)
+
+	g.SetViewOnTop("save-dialog")
+	g.SetCurrentView("save-dialog")
+	dialog.SetCursor(0, len(currentDir))
 	return
 }
 
@@ -815,6 +885,7 @@ Usage: wuzz [-H|--header=HEADER]... [-D|--data=POST_DATA] [-t|--timeout=MSECS] [
 
 Key bindings:
   ctrl+r              Send request
+  ctrl+s              Save response
   tab, ctrl+j         Next window
   shift+tab, ctrl+k   Previous window
   ctrl+h, alt+h       Show history
