@@ -471,6 +471,7 @@ func (a *App) SetKeys(g *gocui.Gui) {
 	g.SetKeybinding("", gocui.KeyCtrlC, gocui.ModNone, quit)
 
 	g.SetKeybinding("", gocui.KeyTab, gocui.ModNone, a.NextView)
+	g.SetKeybinding("", gocui.KeyCtrlW, gocui.ModNone, a.NextView)
 	g.SetKeybinding("", gocui.KeyCtrlJ, gocui.ModNone, a.NextView)
 	g.SetKeybinding("", gocui.KeyCtrlK, gocui.ModNone, a.PrevView)
 	g.SetKeybinding("method", gocui.KeyEnter, gocui.ModNone, a.ToggleMethodlist)
@@ -815,7 +816,7 @@ Usage: wuzz [-H|--header=HEADER]... [-D|--data=POST_DATA] [-t|--timeout=MSECS] [
 
 Key bindings:
   ctrl+r              Send request
-  tab, ctrl+j         Next window
+  tab, ctrl+j, ctrl+w Next window
   shift+tab, ctrl+k   Previous window
   ctrl+h, alt+h       Show history
   pageUp              Scroll up the current window
