@@ -563,7 +563,7 @@ func (a *App) SetKeys(g *gocui.Gui) {
 			return nil
 		}
 
-		err := ioutil.WriteFile(saveLocation, req.RawResponseBody, 0755)
+		err := ioutil.WriteFile(saveLocation, req.RawResponseBody, 0644)
 		return err
 	})
 
