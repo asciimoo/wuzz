@@ -781,7 +781,7 @@ func scrollView(v *gocui.View, dy int) error {
 	if oy+dy < 0 {
 		dy = -oy
 	}
-	_, err = v.Line(dy)
+	_, err := v.Line(dy)
 	if dy > 0 && err != nil {
 		dy = 0
 	}
