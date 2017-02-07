@@ -189,6 +189,7 @@ func (a *App) Layout(g *gocui.Gui) error {
 			return err
 		}
 		setViewDefaults(v)
+		v.Wrap = false
 		v.Editable = true
 		v.Title = "Request headers"
 	}
