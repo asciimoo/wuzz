@@ -155,7 +155,7 @@ func (a *App) Layout(g *gocui.Gui) error {
 			return err
 		}
 		setViewDefaults(v)
-		v.Title = "URL - press ctrl+r to send request (F2)"
+		v.Title = "URL (F2) - press ctrl+r to send request"
 		v.Editable = true
 		setViewTextAndCursor(v, "https://")
 	}
