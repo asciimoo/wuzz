@@ -19,8 +19,9 @@ $ "$GOPATH/bin/wuzz" --help
 ### Commands
 
 Keybinding                              | Description
-----------------------------------------|------------------------------------------------------------	gocui.KeyF2: "url",
-<kbd>F3</kbd>                           | URL
+----------------------------------------|------------------------------------------------------------	
+<kbd>F2</kbd>                           | URL
+<kbd>F3</kbd>                           | Query parameters
 <kbd>F4</kbd>                           | HTTP method
 <kbd>F5</kbd>                           | Request body
 <kbd>F6</kbd>                           | Headers
