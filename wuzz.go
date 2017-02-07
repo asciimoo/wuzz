@@ -155,7 +155,7 @@ func (a *App) Layout(g *gocui.Gui) error {
 			return err
 		}
 		setViewDefaults(v)
-		v.Title = "URL - press ctrl+r to send request"
+		v.Title = "URL - press ctrl+r to send request (F2)"
 		v.Editable = true
 		setViewTextAndCursor(v, "https://")
 	}
@@ -165,7 +165,7 @@ func (a *App) Layout(g *gocui.Gui) error {
 		}
 		setViewDefaults(v)
 		v.Editable = true
-		v.Title = "URL params"
+		v.Title = "URL params (F3)"
 	}
 	if v, err := g.SetView("method", 0, splitY+1, splitX, splitY+3); err != nil {
 		if err != gocui.ErrUnknownView {
@@ -173,7 +173,7 @@ func (a *App) Layout(g *gocui.Gui) error {
 		}
 		setViewDefaults(v)
 		v.Editable = true
-		v.Title = "Method"
+		v.Title = "Method (F4)"
 		setViewTextAndCursor(v, "GET")
 	}
 	if v, err := g.SetView("data", 0, 3+splitY, splitX, 2*splitY+3); err != nil {
@@ -182,7 +182,7 @@ func (a *App) Layout(g *gocui.Gui) error {
 		}
 		setViewDefaults(v)
 		v.Editable = true
-		v.Title = "Request data (POST/PUT)"
+		v.Title = "Request data (POST/PUT) (F5)"
 	}
 	if v, err := g.SetView("headers", 0, 3+(splitY*2), splitX, maxY-2); err != nil {
 		if err != gocui.ErrUnknownView {
@@ -190,14 +190,14 @@ func (a *App) Layout(g *gocui.Gui) error {
 		}
 		setViewDefaults(v)
 		v.Editable = true
-		v.Title = "Request headers"
+		v.Title = "Request headers (F6)"
 	}
 	if v, err := g.SetView("response-headers", splitX, 3, maxX-1, splitY+3); err != nil {
 		if err != gocui.ErrUnknownView {
 			return err
 		}
 		setViewDefaults(v)
-		v.Title = "Response headers"
+		v.Title = "Response headers (F8)"
 		v.Editable = true
 		v.Editor = &ViewEditor{a, g, false, gocui.EditorFunc(func(v *gocui.View, key gocui.Key, ch rune, mod gocui.Modifier) {
 			return
@@ -208,7 +208,7 @@ func (a *App) Layout(g *gocui.Gui) error {
 			return err
 		}
 		setViewDefaults(v)
-		v.Title = "Response body"
+		v.Title = "Response body (F9)"
 		v.Editable = true
 		v.Editor = &ViewEditor{a, g, false, gocui.EditorFunc(func(v *gocui.View, key gocui.Key, ch rune, mod gocui.Modifier) {
 			return
