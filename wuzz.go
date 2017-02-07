@@ -429,7 +429,7 @@ func (a *App) PrintBody(g *gocui.Gui) {
 		is_binary := strings.Index(req.ContentType, "text") == -1 && strings.Index(req.ContentType, "application") == -1
 		search_text := getViewValue(g, "search")
 		if search_text == "" || is_binary {
-			vrb.Title = "Response body"
+			vrb.Title = "Response body (F9)"
 			if is_binary {
 				vrb.Title += " [binary content]"
 				fmt.Fprint(vrb, hex.Dump(req.RawResponseBody))
