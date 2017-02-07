@@ -102,20 +102,20 @@ func init() {
 	CLIENT.Transport = TRANSPORT
 }
 
-func (e *ViewEditor) GoToHome(v *gocui.View) error {
+func (e *ViewEditor) GoToStart(v *gocui.View) {
 	var _, y = v.Cursor()
-	return v.SetCursor(0, y)
+	v.SetCursor(0, y)
 }
 
-func (e *ViewEditor) GoToEnd(v *gocui.View) error {
+func (e *ViewEditor) GoToEnd(v *gocui.View) {
 	var err error = nil
 	var line = ""
 	var _, y = v.Cursor()
 	line, err = v.Line(y)
 	if err != nil {
-		return err
+		return
 	}
-	return v.SetCursor(len(line), y)
+	v.SetCursor(len(line), y)
 }
 
 func (e *ViewEditor) Edit(v *gocui.View, key gocui.Key, ch rune, mod gocui.Modifier) {
@@ -133,13 +133,16 @@ func (e *ViewEditor) Edit(v *gocui.View, key gocui.Key, ch rune, mod gocui.Modif
 		e.backTabEscape = true
 		return
 	}
-	if key == gocui.KeyHome {
-		_ = e.GoToHome(v)
+	switch key {
+	case gocui.KeyHome:
+		e.GoToStart(v)
+		break
+	case gocui.KeyEnd:
+		e.GoToEnd(v)
+		break
+	default:
+		e.origEditor.Edit(v, key, ch, mod)
 	}
-	if key == gocui.KeyEnd {
-		_ = e.GoToEnd(v)
-	}
-	e.origEditor.Edit(v, key, ch, mod)
 }
 
 func (e *SearchEditor) Edit(v *gocui.View, key gocui.Key, ch rune, mod gocui.Modifier) {
