@@ -564,11 +564,31 @@ func (a *App) SetKeys(g *gocui.Gui) {
 		}
 
 		err := ioutil.WriteFile(saveLocation, req.RawResponseBody, 0644)
+
+		var saveResult string
+		if err == nil {
+			saveResult = "Response saved successfully."
+		} else {
+			saveResult = "Error saving response: " + err.Error()
+		}
+
+		saveResultPopup, err := a.CreatePopupView("save-result", len(saveResult), 1, g)
+		saveResultPopup.Title = "Save Result (press enter to close)"
+		setViewTextAndCursor(saveResultPopup, saveResult)
+
+		g.SetViewOnTop("save-result")
+		g.SetCurrentView("save-result")
+
 		return err
 	})
 
 	g.SetKeybinding("save-dialog", gocui.KeyCtrlQ, gocui.ModNone, func(g *gocui.Gui, v *gocui.View) error {
 		a.closePopup(g, "save-dialog")
+		return nil
+	})
+
+	g.SetKeybinding("save-result", gocui.KeyEnter, gocui.ModNone, func(g *gocui.Gui, v *gocui.View) error {
+		a.closePopup(g, "save-result")
 		return nil
 	})
 }
