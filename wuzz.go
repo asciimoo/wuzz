@@ -511,20 +511,22 @@ func (a *App) SetKeys(g *gocui.Gui) {
 		})
 	}
 
-	// history keybindings
-	g.SetKeybinding("history", gocui.KeyArrowDown, gocui.ModNone, func(g *gocui.Gui, v *gocui.View) error {
+	cursDown := func(g *gocui.Gui, v *gocui.View) error {
 		cx, cy := v.Cursor()
 		v.SetCursor(cx, cy+1)
 		return nil
-	})
-	g.SetKeybinding("history", gocui.KeyArrowUp, gocui.ModNone, func(g *gocui.Gui, v *gocui.View) error {
+	}
+	cursUp := func(g *gocui.Gui, v *gocui.View) error {
 		cx, cy := v.Cursor()
 		if cy > 0 {
 			cy -= 1
 		}
 		v.SetCursor(cx, cy)
 		return nil
-	})
+	}
+	// history keybindings
+	g.SetKeybinding("history", gocui.KeyArrowDown, gocui.ModNone, cursDown)
+	g.SetKeybinding("history", gocui.KeyArrowUp, gocui.ModNone, cursUp)
 	g.SetKeybinding("history", gocui.KeyEnter, gocui.ModNone, func(g *gocui.Gui, v *gocui.View) error {
 		_, cy := v.Cursor()
 		// TODO error
@@ -535,20 +537,28 @@ func (a *App) SetKeys(g *gocui.Gui) {
 		return nil
 	})
 
-	// history keybindings
-	g.SetKeybinding("method-list", gocui.KeyArrowDown, gocui.ModNone, func(g *gocui.Gui, v *gocui.View) error {
-		cx, cy := v.Cursor()
-		v.SetCursor(cx, cy+1)
-		return nil
-	})
-	g.SetKeybinding("method-list", gocui.KeyArrowUp, gocui.ModNone, func(g *gocui.Gui, v *gocui.View) error {
-		cx, cy := v.Cursor()
-		if cy > 0 {
-			cy -= 1
+	// method keybindings
+	g.SetKeybinding("method", gocui.KeyArrowDown, gocui.ModNone, func(g *gocui.Gui, v *gocui.View) error {
+		value := strings.TrimSpace(v.Buffer())
+		for i, val := range METHODS {
+			if val == value && i != len(METHODS)-1 {
+				setViewTextAndCursor(v, METHODS[i+1])
+			}
 		}
-		v.SetCursor(cx, cy)
 		return nil
 	})
+
+	g.SetKeybinding("method", gocui.KeyArrowUp, gocui.ModNone, func(g *gocui.Gui, v *gocui.View) error {
+		value := strings.TrimSpace(v.Buffer())
+		for i, val := range METHODS {
+			if val == value && i != 0 {
+				setViewTextAndCursor(v, METHODS[i-1])
+			}
+		}
+		return nil
+	})
+	g.SetKeybinding("method-list", gocui.KeyArrowDown, gocui.ModNone, cursDown)
+	g.SetKeybinding("method-list", gocui.KeyArrowUp, gocui.ModNone, cursUp)
 	g.SetKeybinding("method-list", gocui.KeyEnter, gocui.ModNone, func(g *gocui.Gui, v *gocui.View) error {
 		_, cy := v.Cursor()
 		v, _ = g.View("method")
