@@ -19,7 +19,7 @@ $ "$GOPATH/bin/wuzz" --help
 ### Commands
 
 Keybinding                              | Description
-----------------------------------------|------------------------------------------------------------
+----------------------------------------|---------------------------------------
 <kbd>Ctrl+R</kbd>                       | Send request
 <kbd>Ret</kbd>                          | Send request (only from URL view)
 <kbd>Ctrl+S</kbd>                       | Save response

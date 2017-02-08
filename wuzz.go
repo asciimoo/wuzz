@@ -64,6 +64,8 @@ var VIEWS []string = []string{
 	"response-body",
 }
 
+var defaultEditor ViewEditor
+
 const MIN_WIDTH = 60
 const MIN_HEIGHT = 20
 
@@ -93,14 +95,20 @@ type ViewEditor struct {
 }
 
 type SearchEditor struct {
-	app *App
-	g   *gocui.Gui
+	wuzzEditor *ViewEditor
+}
+
+// The singlelineEditor removes multilines capabilities
+type singlelineEditor struct {
+	wuzzEditor gocui.Editor
 }
 
 func init() {
 	TRANSPORT.DisableCompression = true
 	CLIENT.Transport = TRANSPORT
 }
+
+// Editor funcs
 
 func (e *ViewEditor) Edit(v *gocui.View, key gocui.Key, ch rune, mod gocui.Modifier) {
 	// handle back-tab (\033[Z) sequence
@@ -122,12 +130,43 @@ func (e *ViewEditor) Edit(v *gocui.View, key gocui.Key, ch rune, mod gocui.Modif
 }
 
 func (e *SearchEditor) Edit(v *gocui.View, key gocui.Key, ch rune, mod gocui.Modifier) {
-	gocui.DefaultEditor.Edit(v, key, ch, mod)
-	e.g.Execute(func(g *gocui.Gui) error {
-		e.app.PrintBody(g)
+	e.wuzzEditor.Edit(v, key, ch, mod)
+	e.wuzzEditor.g.Execute(func(g *gocui.Gui) error {
+		e.wuzzEditor.app.PrintBody(g)
 		return nil
 	})
 }
+
+// The singlelineEditor removes multilines capabilities
+func (e singlelineEditor) Edit(v *gocui.View, key gocui.Key, ch rune, mod gocui.Modifier) {
+	switch {
+	case (ch != 0 || key == gocui.KeySpace) && mod == 0:
+		e.wuzzEditor.Edit(v, key, ch, mod)
+		// At the end of the line the default gcui editor adds a whitespace
+		// Force him to remove
+		ox, _ := v.Cursor()
+		if ox > 1 && ox >= len(v.Buffer())-2 {
+			v.EditDelete(false)
+		}
+		return
+	case key == gocui.KeyEnter:
+		return
+	case key == gocui.KeyArrowRight:
+		ox, _ := v.Cursor()
+		if ox >= len(v.Buffer())-1 {
+			return
+		}
+	case key == gocui.KeyHome || key == gocui.KeyArrowUp:
+		v.SetCursor(0, 0)
+		return
+	case key == gocui.KeyEnd || key == gocui.KeyArrowDown:
+		v.SetCursor(len(v.Buffer())-1, 0)
+		return
+	}
+	e.wuzzEditor.Edit(v, key, ch, mod)
+}
+
+//
 
 func (a *App) Layout(g *gocui.Gui) error {
 	maxX, maxY := g.Size()
@@ -157,6 +196,8 @@ func (a *App) Layout(g *gocui.Gui) error {
 		setViewDefaults(v)
 		v.Title = "URL (F2) - press ctrl+r to send request"
 		v.Editable = true
+		v.Overwrite = false
+		v.Editor = &singlelineEditor{&defaultEditor}
 		setViewTextAndCursor(v, "https://")
 	}
 	if v, err := g.SetView("get", 0, 3, splitX, splitY+1); err != nil {
@@ -166,6 +207,7 @@ func (a *App) Layout(g *gocui.Gui) error {
 		setViewDefaults(v)
 		v.Editable = true
 		v.Title = "URL params (F3)"
+		v.Editor = &defaultEditor
 	}
 	if v, err := g.SetView("method", 0, splitY+1, splitX, splitY+3); err != nil {
 		if err != gocui.ErrUnknownView {
@@ -174,6 +216,8 @@ func (a *App) Layout(g *gocui.Gui) error {
 		setViewDefaults(v)
 		v.Editable = true
 		v.Title = "Method (F4)"
+		v.Editor = &singlelineEditor{&defaultEditor}
+
 		setViewTextAndCursor(v, "GET")
 	}
 	if v, err := g.SetView("data", 0, 3+splitY, splitX, 2*splitY+3); err != nil {
@@ -183,6 +227,7 @@ func (a *App) Layout(g *gocui.Gui) error {
 		setViewDefaults(v)
 		v.Editable = true
 		v.Title = "Request data (POST/PUT) (F5)"
+		v.Editor = &defaultEditor
 	}
 	if v, err := g.SetView("headers", 0, 3+(splitY*2), splitX, maxY-2); err != nil {
 		if err != gocui.ErrUnknownView {
@@ -191,6 +236,7 @@ func (a *App) Layout(g *gocui.Gui) error {
 		setViewDefaults(v)
 		v.Editable = true
 		v.Title = "Request headers (F6)"
+		v.Editor = &defaultEditor
 	}
 	if v, err := g.SetView("response-headers", splitX, 3, maxX-1, splitY+3); err != nil {
 		if err != gocui.ErrUnknownView {
@@ -228,7 +274,7 @@ func (a *App) Layout(g *gocui.Gui) error {
 		}
 		v.Frame = false
 		v.Editable = true
-		v.Editor = &SearchEditor{a, g}
+		v.Editor = &singlelineEditor{&SearchEditor{&defaultEditor}}
 		v.Wrap = true
 	}
 	return nil
@@ -928,7 +974,7 @@ func main() {
 	app := &App{history: make([]*Request, 0, 31)}
 
 	// overwrite default editor
-	gocui.DefaultEditor = &ViewEditor{app, g, false, gocui.DefaultEditor}
+	defaultEditor = ViewEditor{app, g, false, gocui.DefaultEditor}
 
 	initApp(app, g)
 
