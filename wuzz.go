@@ -765,6 +765,7 @@ func (a *App) ExportAsCURLCommand(g *gocui.Gui, _ *gocui.View) (err error) {
 		if header == "" {
 			continue
 		}
+		header = strings.Replace(header, `'`, `'\''`, -1)
 		headersParam += fmt.Sprintf(" -H '%s'", header)
 	}
 
@@ -775,7 +776,7 @@ func (a *App) ExportAsCURLCommand(g *gocui.Gui, _ *gocui.View) (err error) {
 		dataParam = fmt.Sprintf("--data '%s'", data)
 	}
 
-	command := fmt.Sprintf("curl -X%s %s %s %s", method, u.String(), headersParam, dataParam)
+	command := fmt.Sprintf("curl -X%s '%s' %s %s", method, u.String(), headersParam, dataParam)
 	clipboard.WriteAll(command)
 	popup(g, "Copied the cURL command to clipboard")
 	return nil
