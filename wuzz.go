@@ -898,7 +898,7 @@ func quit(g *gocui.Gui, v *gocui.View) error {
 func help() {
 	fmt.Println(`wuzz - Interactive cli tool for HTTP inspection
 
-Usage: wuzz [-H|--header=HEADER]... [-D|--data=POST_DATA] [-t|--timeout=MSECS] [URL]
+Usage: wuzz [-H|--header=HEADER]... [-d|--data=POST_DATA] [-X|--request=METHOD] [-t|--timeout=MSECS] [URL]
 
 Key bindings:
   ctrl+r              Send request
