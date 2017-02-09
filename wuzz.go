@@ -279,8 +279,10 @@ func popup(g *gocui.Gui, msg string) {
 func (a *App) SubmitRequest(g *gocui.Gui, _ *gocui.View) error {
 	vrb, _ := g.View("response-body")
 	vrb.Clear()
+	vrb.SetOrigin(0, 0)
 	vrh, _ := g.View("response-headers")
 	vrh.Clear()
+	vrh.SetOrigin(0, 0)
 	popup(g, "Sending request..")
 
 	var r *Request = &Request{}
