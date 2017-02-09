@@ -787,7 +787,7 @@ func (a *App) ParseArgs(g *gocui.Gui) error {
 			arg_index += 1
 			header := os.Args[arg_index]
 			fmt.Fprintf(vheader, "%v\n", header)
-		case "-D", "--data":
+		case "-d", "--data":
 			if arg_index == args_len-1 {
 				return errors.New("No POST/PUT value specified")
 			}
@@ -799,6 +799,13 @@ func (a *App) ParseArgs(g *gocui.Gui) error {
 			data, _ := url.QueryUnescape(os.Args[arg_index])
 			vdata, _ := g.View("data")
 			setViewTextAndCursor(vdata, data)
+		case "-X", "--request":
+			if arg_index == args_len-1 {
+				return errors.New("No HTTP method specified")
+			}
+			arg_index++
+			vmethod, _ := g.View("method")
+			setViewTextAndCursor(vmethod, os.Args[arg_index])
 		case "-t", "--timeout":
 			if arg_index == args_len-1 {
 				return errors.New("No timeout value specified")
