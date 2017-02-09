@@ -156,7 +156,7 @@ func (a *App) Layout(g *gocui.Gui) error {
 			return err
 		}
 		setViewDefaults(v)
-		v.Title = "URL - press ctrl+r to send request"
+		v.Title = "URL (F2) - press ctrl+r to send request"
 		v.Editable = true
 		setViewTextAndCursor(v, "https://")
 	}
@@ -166,7 +166,7 @@ func (a *App) Layout(g *gocui.Gui) error {
 		}
 		setViewDefaults(v)
 		v.Editable = true
-		v.Title = "URL params"
+		v.Title = "URL params (F3)"
 	}
 	if v, err := g.SetView("method", 0, splitY+1, splitX, splitY+3); err != nil {
 		if err != gocui.ErrUnknownView {
@@ -174,7 +174,7 @@ func (a *App) Layout(g *gocui.Gui) error {
 		}
 		setViewDefaults(v)
 		v.Editable = true
-		v.Title = "Method"
+		v.Title = "Method (F4)"
 		setViewTextAndCursor(v, "GET")
 	}
 	if v, err := g.SetView("data", 0, 3+splitY, splitX, 2*splitY+3); err != nil {
@@ -183,22 +183,23 @@ func (a *App) Layout(g *gocui.Gui) error {
 		}
 		setViewDefaults(v)
 		v.Editable = true
-		v.Title = "Request data (POST/PUT)"
+		v.Title = "Request data (POST/PUT) (F5)"
 	}
 	if v, err := g.SetView("headers", 0, 3+(splitY*2), splitX, maxY-2); err != nil {
 		if err != gocui.ErrUnknownView {
 			return err
 		}
 		setViewDefaults(v)
+		v.Wrap = false
 		v.Editable = true
-		v.Title = "Request headers"
+		v.Title = "Request headers (F6)"
 	}
 	if v, err := g.SetView("response-headers", splitX, 3, maxX-1, splitY+3); err != nil {
 		if err != gocui.ErrUnknownView {
 			return err
 		}
 		setViewDefaults(v)
-		v.Title = "Response headers"
+		v.Title = "Response headers (F8)"
 		v.Editable = true
 		v.Editor = &ViewEditor{a, g, false, gocui.EditorFunc(func(v *gocui.View, key gocui.Key, ch rune, mod gocui.Modifier) {
 			return
@@ -209,7 +210,7 @@ func (a *App) Layout(g *gocui.Gui) error {
 			return err
 		}
 		setViewDefaults(v)
-		v.Title = "Response body"
+		v.Title = "Response body (F9)"
 		v.Editable = true
 		v.Editor = &ViewEditor{a, g, false, gocui.EditorFunc(func(v *gocui.View, key gocui.Key, ch rune, mod gocui.Modifier) {
 			return
@@ -437,7 +438,7 @@ func (a *App) PrintBody(g *gocui.Gui) {
 		is_binary := strings.Index(req.ContentType, "text") == -1 && strings.Index(req.ContentType, "application") == -1
 		search_text := getViewValue(g, "search")
 		if search_text == "" || is_binary {
-			vrb.Title = "Response body"
+			vrb.Title = "Response body (F9)"
 			if is_binary {
 				vrb.Title += " [binary content]"
 				fmt.Fprint(vrb, hex.Dump(req.RawResponseBody))
@@ -581,7 +582,16 @@ func (a *App) SetKeys(g *gocui.Gui) {
 			saveResult = "Error saving response: " + err.Error()
 		}
 
-		saveResultPopup, err := a.CreatePopupView("save-result", len(saveResult), 1, g)
+		saveResHeight := 1
+		saveResWidth := len(saveResult) + 1
+		maxX, _ := g.Size()
+
+		if saveResWidth > maxX {
+			saveResHeight = saveResWidth/maxX + 1
+			saveResWidth = maxX
+		}
+
+		saveResultPopup, err := a.CreatePopupView("save-result", saveResWidth, saveResHeight, g)
 		saveResultPopup.Title = "Save Result (press enter to close)"
 		setViewTextAndCursor(saveResultPopup, saveResult)
 
@@ -834,7 +844,7 @@ func (a *App) ParseArgs(g *gocui.Gui) error {
 			arg_index += 1
 			header := os.Args[arg_index]
 			fmt.Fprintf(vheader, "%v\n", header)
-		case "-D", "--data":
+		case "-d", "--data":
 			if arg_index == args_len-1 {
 				return errors.New("No POST/PUT value specified")
 			}
@@ -846,6 +856,13 @@ func (a *App) ParseArgs(g *gocui.Gui) error {
 			data, _ := url.QueryUnescape(os.Args[arg_index])
 			vdata, _ := g.View("data")
 			setViewTextAndCursor(vdata, data)
+		case "-X", "--request":
+			if arg_index == args_len-1 {
+				return errors.New("No HTTP method specified")
+			}
+			arg_index++
+			vmethod, _ := g.View("method")
+			setViewTextAndCursor(vmethod, os.Args[arg_index])
 		case "-t", "--timeout":
 			if arg_index == args_len-1 {
 				return errors.New("No timeout value specified")
@@ -908,6 +925,9 @@ func scrollView(v *gocui.View, dy int) error {
 	if oy+dy < 0 {
 		dy = -oy
 	}
+	if _, err := v.Line(dy); dy > 0 && err != nil {
+		dy = 0
+	}
 	v.SetOrigin(ox, oy+dy)
 	return nil
 }
@@ -938,7 +958,7 @@ func quit(g *gocui.Gui, v *gocui.View) error {
 func help() {
 	fmt.Println(`wuzz - Interactive cli tool for HTTP inspection
 
-Usage: wuzz [-H|--header=HEADER]... [-D|--data=POST_DATA] [-t|--timeout=MSECS] [URL]
+Usage: wuzz [-H|--header=HEADER]... [-d|--data=POST_DATA] [-X|--request=METHOD] [-t|--timeout=MSECS] [URL]
 
 Key bindings:
   ctrl+r              Send request
