@@ -868,6 +868,9 @@ func scrollView(v *gocui.View, dy int) error {
 	if oy+dy < 0 {
 		dy = -oy
 	}
+	if _, err := v.Line(dy); dy > 0 && err != nil {
+		dy = 0
+	}
 	v.SetOrigin(ox, oy+dy)
 	return nil
 }
