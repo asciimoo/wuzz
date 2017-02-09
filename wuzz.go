@@ -786,7 +786,7 @@ func (a *App) ParseArgs(g *gocui.Gui) error {
 			arg_index += 1
 			header := os.Args[arg_index]
 			fmt.Fprintf(vheader, "%v\n", header)
-		case "-D", "--data":
+		case "-d", "--data":
 			if arg_index == args_len-1 {
 				return errors.New("No POST/PUT value specified")
 			}
