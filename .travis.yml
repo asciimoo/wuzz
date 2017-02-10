@@ -1,13 +1,16 @@
 language: go
 go:
   - tip # latest
+os:
+  - linux
+  - osx
 env:
   - "PATH=/home/travis/gopath/bin:$PATH"
 script:
   - test -z "$(gofmt -l ./)"
   - test -z "$(go vet -v ./...)"
   - go build
-after_success:
-  # Publish as pre-release if it isn't a pull request
-  - 'if [ "$TRAVIS_PULL_REQUEST" = "false" ]; then go get github.com/mitchellh/gox && go get github.com/tcnksm/ghr; fi'
-  - 'if [ "$TRAVIS_PULL_REQUEST" = "false" ]; then gox -output "dist/{{.Dir}}_{{.OS}}_{{.Arch}}" && ghr --username $GITHUB_USERNAME --token $GITHUB_TOKEN --replace --prerelease --debug pre-release dist/; fi'
+# after_success:
+#   # Publish as pre-release if it isn't a pull request
+#   - 'if [ "$TRAVIS_PULL_REQUEST" = "false" ]; then go get github.com/mitchellh/gox && go get github.com/tcnksm/ghr; fi'
+#   - 'if [ "$TRAVIS_PULL_REQUEST" = "false" ]; then gox -output "dist/{{.Dir}}_{{.OS}}_{{.Arch}}" && ghr --username $GITHUB_USERNAME --token $GITHUB_TOKEN --replace --prerelease --debug pre-release dist/; fi'
