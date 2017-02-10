@@ -4,9 +4,12 @@ import (
 	"bytes"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"regexp"
 	"strings"
+
+	"github.com/tidwall/gjson"
 )
 
 // DefaultResponseBodyTitle defines the default header for the body view
@@ -60,7 +63,27 @@ func SearchText(request *Request, searchString string) (string, []byte, error) {
 // Returns a pretty-print json
 func SearchJSON(request *Request, searchString string) (string, []byte, error) {
 	var prettyJSON bytes.Buffer
-	err := json.Indent(&prettyJSON, request.RawResponseBody, "", "  ")
+	body := request.RawResponseBody
+	if searchString != "" {
+		if request.ParsedResponseBody == nil {
+			request.ParsedResponseBody = gjson.ParseBytes(request.RawResponseBody)
+		}
+		result := request.ParsedResponseBody.(gjson.Result)
+		if result.Type != gjson.JSON { // not json
+			return DefaultResponseBodyTitle, request.RawResponseBody, nil
+		}
+		searchResult := result.Get(searchString)
+		if searchResult.Type == gjson.Null {
+			// if the search is bad, we will keep the previous result
+			return "Showing previous result", nil, errors.New("bad search")
+		}
+		if searchResult.Type != gjson.JSON {
+			return DefaultResponseBodyTitle + " [json-" + searchResult.Type.String() + "]",
+				[]byte(searchResult.String()), nil
+		}
+		body = []byte(searchResult.String())
+	}
+	err := json.Indent(&prettyJSON, body, "", "  ")
 	if err == nil {
 		return DefaultResponseBodyTitle + " [json]", prettyJSON.Bytes(), nil
 	}

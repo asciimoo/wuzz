@@ -65,14 +65,15 @@ const MIN_WIDTH = 60
 const MIN_HEIGHT = 20
 
 type Request struct {
-	Url             string
-	Method          string
-	GetParams       string
-	Data            string
-	Headers         string
-	ResponseHeaders string
-	RawResponseBody []byte
-	ContentType     string
+	Url                string
+	Method             string
+	GetParams          string
+	Data               string
+	Headers            string
+	ResponseHeaders    string
+	RawResponseBody    []byte
+	ContentType        string
+	ParsedResponseBody interface{}
 }
 
 type App struct {
