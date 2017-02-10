@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"compress/gzip"
 	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -19,7 +18,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/jroimartin/gocui"
+	"github.com/nwidger/gocui"
+	"github.com/nwidger/jsoncolor"
 )
 
 var METHODS []string = []string{
@@ -377,10 +377,11 @@ func (a *App) SubmitRequest(g *gocui.Gui, _ *gocui.View) error {
 
 		// pretty-print json
 		if strings.Contains(response.Header.Get("Content-Type"), "application/json") {
-			var prettyJSON bytes.Buffer
-			err := json.Indent(&prettyJSON, r.RawResponseBody, "", "  ")
+			formatter := jsoncolor.NewFormatter()
+			buf := bytes.NewBuffer(make([]byte, 0, len(r.RawResponseBody)))
+			err := formatter.Format(buf, r.RawResponseBody)
 			if err == nil {
-				r.RawResponseBody = prettyJSON.Bytes()
+				r.RawResponseBody = buf.Bytes()
 			}
 		}
 
