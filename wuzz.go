@@ -507,6 +507,13 @@ func (a *App) SetKeys(g *gocui.Gui) {
 	for _, view := range []string{"response-body", "response-headers"} {
 		g.SetKeybinding(view, gocui.KeyArrowUp, gocui.ModNone, scrollViewUp)
 		g.SetKeybinding(view, gocui.KeyArrowDown, gocui.ModNone, scrollViewDown)
+
+		g.SetKeybinding(view, 'k', gocui.ModNone, scrollViewUp)
+		g.SetKeybinding(view, 'j', gocui.ModNone, scrollViewDown)
+
+		g.SetKeybinding(view, gocui.MouseWheelUp, gocui.ModNone, scrollViewUp)
+		g.SetKeybinding(view, gocui.MouseWheelDown, gocui.ModNone, scrollViewDown)
+
 		g.SetKeybinding(view, gocui.KeyPgup, gocui.ModNone, func(_ *gocui.Gui, v *gocui.View) error {
 			_, height := v.Size()
 			scrollView(v, -height*2/3)
@@ -520,19 +527,23 @@ func (a *App) SetKeys(g *gocui.Gui) {
 	}
 
 	// history keybindings
-	g.SetKeybinding("history", gocui.KeyArrowDown, gocui.ModNone, func(g *gocui.Gui, v *gocui.View) error {
+	var scrollHistoryDown = func(g *gocui.Gui, v *gocui.View) error {
 		cx, cy := v.Cursor()
 		v.SetCursor(cx, cy+1)
 		return nil
-	})
-	g.SetKeybinding("history", gocui.KeyArrowUp, gocui.ModNone, func(g *gocui.Gui, v *gocui.View) error {
+	}
+	var scrollHistoryUp = func(g *gocui.Gui, v *gocui.View) error {
 		cx, cy := v.Cursor()
 		if cy > 0 {
 			cy -= 1
 		}
 		v.SetCursor(cx, cy)
 		return nil
-	})
+	}
+	g.SetKeybinding("history", gocui.KeyArrowDown, gocui.ModNone, scrollHistoryDown)
+	g.SetKeybinding("history", 'j', gocui.ModNone, scrollHistoryDown)
+	g.SetKeybinding("history", gocui.KeyArrowUp, gocui.ModNone, scrollHistoryUp)
+	g.SetKeybinding("history", 'k', gocui.ModNone, scrollHistoryUp)
 	g.SetKeybinding("history", gocui.KeyEnter, gocui.ModNone, func(g *gocui.Gui, v *gocui.View) error {
 		_, cy := v.Cursor()
 		// TODO error
