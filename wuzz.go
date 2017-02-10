@@ -279,10 +279,8 @@ func popup(g *gocui.Gui, msg string) {
 func (a *App) SubmitRequest(g *gocui.Gui, _ *gocui.View) error {
 	vrb, _ := g.View("response-body")
 	vrb.Clear()
-	vrb.SetOrigin(0, 0)
 	vrh, _ := g.View("response-headers")
 	vrh.Clear()
-	vrh.SetOrigin(0, 0)
 	popup(g, "Sending request..")
 
 	var r *Request = &Request{}
@@ -416,6 +414,9 @@ func (a *App) SubmitRequest(g *gocui.Gui, _ *gocui.View) error {
 				header_str += fmt.Sprintf("\x1b[0;33m%v:\x1b[0;0m %v\n", hname, strings.Join(response.Header[hname], ","))
 			}
 			fmt.Fprint(vrh, header_str)
+			if _, err := vrh.Line(0); err != nil {
+				vrh.SetOrigin(0, 0)
+			}
 			r.ResponseHeaders = header_str
 			return nil
 		})
@@ -446,8 +447,12 @@ func (a *App) PrintBody(g *gocui.Gui) {
 			} else {
 				vrb.Write(req.RawResponseBody)
 			}
+			if _, err := vrb.Line(0); err != nil {
+				vrb.SetOrigin(0, 0)
+			}
 			return nil
 		}
+		vrb.SetOrigin(0, 0)
 		search_re, err := regexp.Compile(search_text)
 		if err != nil {
 			fmt.Fprint(vrb, "Error: invalid search regexp")
