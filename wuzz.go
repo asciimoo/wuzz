@@ -102,6 +102,22 @@ func init() {
 	CLIENT.Transport = TRANSPORT
 }
 
+func (e *ViewEditor) GoToStart(v *gocui.View) {
+	var _, y = v.Cursor()
+	v.SetCursor(0, y)
+}
+
+func (e *ViewEditor) GoToEnd(v *gocui.View) {
+	var err error = nil
+	var line = ""
+	var _, y = v.Cursor()
+	line, err = v.Line(y)
+	if err != nil {
+		return
+	}
+	v.SetCursor(len(line), y)
+}
+
 func (e *ViewEditor) Edit(v *gocui.View, key gocui.Key, ch rune, mod gocui.Modifier) {
 	// handle back-tab (\033[Z) sequence
 	if e.backTabEscape {
@@ -117,8 +133,16 @@ func (e *ViewEditor) Edit(v *gocui.View, key gocui.Key, ch rune, mod gocui.Modif
 		e.backTabEscape = true
 		return
 	}
-
-	e.origEditor.Edit(v, key, ch, mod)
+	switch key {
+	case gocui.KeyHome:
+		e.GoToStart(v)
+		break
+	case gocui.KeyEnd:
+		e.GoToEnd(v)
+		break
+	default:
+		e.origEditor.Edit(v, key, ch, mod)
+	}
 }
 
 func (e *SearchEditor) Edit(v *gocui.View, key gocui.Key, ch rune, mod gocui.Modifier) {
@@ -901,7 +925,7 @@ func setViewTextAndCursor(v *gocui.View, s string) {
 	v.SetCursor(len(s), 0)
 }
 
-func quit(g *gocui.Gui, v *gocui.View) error {
+func quit(_ *gocui.Gui, _ *gocui.View) error {
 	return gocui.ErrQuit
 }
 
