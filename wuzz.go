@@ -859,6 +859,10 @@ func (a *App) ParseArgs(g *gocui.Gui) error {
 			setViewTextAndCursor(vmethod, "POST")
 
 			arg_index += 1
+
+			vgh, _ := g.View("headers")
+			setViewTextAndCursor(vgh, "Content-Type: application/x-www-form-urlencoded")
+
 			data, _ := url.QueryUnescape(os.Args[arg_index])
 			vdata, _ := g.View("data")
 			setViewTextAndCursor(vdata, data)
