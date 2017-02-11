@@ -19,6 +19,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/atotto/clipboard"
 	"github.com/jroimartin/gocui"
 	"github.com/mattn/go-runewidth"
 )
@@ -551,6 +552,7 @@ func (a *App) SetKeys(g *gocui.Gui) {
 
 	g.SetKeybinding("", gocui.KeyCtrlR, gocui.ModNone, a.SubmitRequest)
 	g.SetKeybinding("url", gocui.KeyEnter, gocui.ModNone, a.SubmitRequest)
+	g.SetKeybinding("", gocui.KeyCtrlE, gocui.ModNone, a.ExportAsCURLCommand)
 
 	// responses common keybindings
 	for _, view := range []string{"response-body", "response-headers"} {
@@ -801,6 +803,75 @@ func (a *App) OpenSaveDialog(g *gocui.Gui, _ *gocui.View) (err error) {
 	return
 }
 
+func (a *App) ExportAsCURLCommand(g *gocui.Gui, _ *gocui.View) (err error) {
+	// Build the URL
+	u, err := url.Parse(getViewValue(g, "url"))
+	if err != nil {
+		g.Execute(func(g *gocui.Gui) error {
+			vrb, _ := g.View("response-body")
+			fmt.Fprintf(vrb, "URL parse error: %v", err)
+			return nil
+		})
+		return nil
+	}
+	if strings.HasPrefix(u.Host, ":") {
+		// cURL doesn't like hostless urls
+		u.Host = "localhost" + u.Host
+	}
+
+	// Get the request method
+	method := strings.ToUpper(getViewValue(g, "method"))
+
+	// Build the query parameters
+	q := u.Query()
+	params := strings.Split(strings.Replace(getViewValue(g, "get"), "\n", "&", -1), "&")
+	for _, param := range params {
+		if param == "" {
+			continue
+		}
+		val := strings.Split(param, "=")
+		q.Set(val[0], val[1])
+	}
+	u.RawQuery = q.Encode()
+
+	// Build the request headers
+	headersParam := ""
+	headers := strings.Split(getViewValue(g, "headers"), "\n")
+	for _, header := range headers {
+		if header == "" {
+			continue
+		}
+		header = strings.Replace(header, `'`, `'\''`, -1)
+		headersParam += fmt.Sprintf(" -H '%s'", header)
+	}
+
+	// Build the request body for POST/PUT/PATCH
+	dataParam := ""
+	if method == "POST" || method == "PUT" || method == "PATCH" {
+		data := strings.Replace(getViewValue(g, "data"), "\n", "&", -1)
+		dataParam = fmt.Sprintf("--data '%s'", data)
+	}
+
+	command := fmt.Sprintf("curl -X%s '%s' %s %s", method, u.String(), headersParam, dataParam)
+	clipboard.WriteAll(command)
+	msg := "Copied the cURL command to clipboard"
+	title := "Export as cURL cmd (press enter to close)"
+	msgPopup, err := a.CreatePopupView("curl-export", len(title)+5, 1, g)
+	msgPopup.Title = title
+	setViewTextAndCursor(msgPopup, msg)
+	if err != nil {
+		return err
+	}
+
+	g.SetViewOnTop("curl-export")
+	g.SetCurrentView("curl-export")
+	g.SetKeybinding("curl-export", gocui.KeyEnter, gocui.ModNone, func(g *gocui.Gui, v *gocui.View) error {
+		a.closePopup(g, "curl-export")
+		return nil
+	})
+	return nil
+}
+
 func (a *App) restoreRequest(g *gocui.Gui, idx int) {
 	if idx < 0 || idx >= len(a.history) {
 		return
@@ -986,6 +1057,7 @@ Other command line options:
 Key bindings:
   ctrl+r              Send request
   ctrl+s              Save response
+  ctrl+e              Export as cURL command
   tab, ctrl+j         Next window
   shift+tab, ctrl+k   Previous window
   ctrl+h, alt+h       Show history
