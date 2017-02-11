@@ -22,6 +22,8 @@ import (
 	"github.com/jroimartin/gocui"
 )
 
+const VERSION = "0.1.0"
+
 var METHODS []string = []string{
 	http.MethodGet,
 	http.MethodPost,
@@ -976,6 +978,10 @@ func help() {
 
 Usage: wuzz [-H|--header=HEADER]... [-d|--data=POST_DATA] [-X|--request=METHOD] [-t|--timeout=MSECS] [URL]
 
+Other command line options:
+  -h, --help          Show this
+  -v, --version       Display version number
+
 Key bindings:
   ctrl+r              Send request
   ctrl+s              Save response
@@ -989,8 +995,12 @@ Key bindings:
 
 func main() {
 	for _, arg := range os.Args {
-		if arg == "-h" || arg == "--help" {
+		switch arg {
+		case "-h", "--help":
 			help()
+			return
+		case "-v", "--version":
+			fmt.Printf("wuzz %v\n", VERSION)
 			return
 		}
 	}
