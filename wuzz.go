@@ -788,7 +788,21 @@ func (a *App) ExportAsCURLCommand(g *gocui.Gui, _ *gocui.View) (err error) {
 
 	command := fmt.Sprintf("curl -X%s '%s' %s %s", method, u.String(), headersParam, dataParam)
 	clipboard.WriteAll(command)
-	popup(g, "Copied the cURL command to clipboard")
+	msg := "Copied the cURL command to clipboard"
+	title := "Export as cURL cmd (press enter to close)"
+	msgPopup, err := a.CreatePopupView("curl-export", len(title)+5, 1, g)
+	msgPopup.Title = title
+	setViewTextAndCursor(msgPopup, msg)
+	if err != nil {
+		return err
+	}
+
+	g.SetViewOnTop("curl-export")
+	g.SetCurrentView("curl-export")
+	g.SetKeybinding("curl-export", gocui.KeyEnter, gocui.ModNone, func(g *gocui.Gui, v *gocui.View) error {
+		a.closePopup(g, "curl-export")
+		return nil
+	})
 	return nil
 }
 
