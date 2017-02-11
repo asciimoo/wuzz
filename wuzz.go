@@ -500,7 +500,7 @@ func (a *App) PrintBody(g *gocui.Gui) {
 			} else {
 				vrb.Write(req.RawResponseBody)
 			}
-			if _, err := vrb.Line(0); err != nil {
+			if _, err := vrb.Line(0); !a.config.General.PreserveScrollPosition || err != nil {
 				vrb.SetOrigin(0, 0)
 			}
 			return nil
