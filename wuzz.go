@@ -3,8 +3,6 @@ package main
 import (
 	"bytes"
 	"compress/gzip"
-	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -12,7 +10,6 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"regexp"
 	"runtime"
 	"sort"
 	"strconv"
@@ -73,14 +70,15 @@ const MIN_WIDTH = 60
 const MIN_HEIGHT = 20
 
 type Request struct {
-	Url             string
-	Method          string
-	GetParams       string
-	Data            string
-	Headers         string
-	ResponseHeaders string
-	RawResponseBody []byte
-	ContentType     string
+	Url                string
+	Method             string
+	GetParams          string
+	Data               string
+	Headers            string
+	ResponseHeaders    string
+	RawResponseBody    []byte
+	ContentType        string
+	ParsedResponseBody interface{}
 }
 
 type App struct {
@@ -424,15 +422,6 @@ func (a *App) SubmitRequest(g *gocui.Gui, _ *gocui.View) error {
 			r.RawResponseBody = bodyBytes
 		}
 
-		// pretty-print json
-		if strings.Contains(response.Header.Get("Content-Type"), "application/json") {
-			var prettyJSON bytes.Buffer
-			err := json.Indent(&prettyJSON, r.RawResponseBody, "", "  ")
-			if err == nil {
-				r.RawResponseBody = prettyJSON.Bytes()
-			}
-		}
-
 		// add to history
 		a.history = append(a.history, r)
 		a.historyIndex = len(a.history) - 1
@@ -485,38 +474,18 @@ func (a *App) PrintBody(g *gocui.Gui) {
 			return nil
 		}
 		vrb, _ := g.View("response-body")
-		vrb.Clear()
-		is_binary := strings.Index(req.ContentType, "text") == -1 && strings.Index(req.ContentType, "application") == -1
-		search_text := getViewValue(g, "search")
-		if search_text == "" || is_binary {
-			vrb.Title = "Response body (F9)"
-			if is_binary {
-				vrb.Title += " [binary content]"
-				fmt.Fprint(vrb, hex.Dump(req.RawResponseBody))
-			} else {
-				vrb.Write(req.RawResponseBody)
-			}
-			if _, err := vrb.Line(0); err != nil {
-				vrb.SetOrigin(0, 0)
-			}
-			return nil
-		}
-		vrb.SetOrigin(0, 0)
-		search_re, err := regexp.Compile(search_text)
+		searchText := getViewValue(g, "search")
+		title, data, err := Search(req, searchText)
 		if err != nil {
-			fmt.Fprint(vrb, "Error: invalid search regexp")
-			return nil
+			vrb.Title = title
+			return nil // if error, we don't update the text
 		}
-		results := search_re.FindAll(req.RawResponseBody, 1000)
-		if len(results) == 0 {
-			vrb.Title = "No results"
-			fmt.Fprint(vrb, "Error: no results")
-			return nil
+		if _, err := vrb.Line(0); err != nil {
+			vrb.SetOrigin(0, 0)
 		}
-		vrb.Title = fmt.Sprintf("%d results", len(results))
-		for _, result := range results {
-			fmt.Fprintf(vrb, "-----\n%s\n", result)
-		}
+		vrb.Title = title
+		vrb.Clear()
+		vrb.Write(data)
 		return nil
 	})
 }
