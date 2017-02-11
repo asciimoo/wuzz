@@ -870,8 +870,12 @@ func (a *App) ParseArgs(g *gocui.Gui) error {
 				return errors.New("No HTTP method specified")
 			}
 			arg_index++
+			method := os.Args[arg_index]
+			if method == "POST" || method == "PUT" {
+				add_content_type = true
+			}
 			vmethod, _ := g.View("method")
-			setViewTextAndCursor(vmethod, os.Args[arg_index])
+			setViewTextAndCursor(vmethod, method)
 		case "-t", "--timeout":
 			if arg_index == args_len-1 {
 				return errors.New("No timeout value specified")
