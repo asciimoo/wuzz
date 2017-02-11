@@ -19,6 +19,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/asciimoo/wuzz/config"
+
 	"github.com/jroimartin/gocui"
 	"github.com/mattn/go-runewidth"
 )
@@ -88,6 +90,7 @@ type App struct {
 	historyIndex int
 	currentPopup string
 	history      []*Request
+	config       *config.Config
 }
 
 type ViewEditor struct {
@@ -201,7 +204,7 @@ func (a *App) Layout(g *gocui.Gui) error {
 		v.Editable = true
 		v.Overwrite = false
 		v.Editor = &singlelineEditor{&defaultEditor}
-		setViewTextAndCursor(v, "https://")
+		setViewTextAndCursor(v, a.config.General.DefaultURLScheme+"://")
 	}
 	if v, err := g.SetView("get", 0, 3, splitX, splitY+1); err != nil {
 		if err != gocui.ErrUnknownView {
@@ -425,7 +428,8 @@ func (a *App) SubmitRequest(g *gocui.Gui, _ *gocui.View) error {
 		}
 
 		// pretty-print json
-		if strings.Contains(response.Header.Get("Content-Type"), "application/json") {
+		if strings.Contains(response.Header.Get("Content-Type"), "application/json") &&
+			a.config.General.FormatJSON {
 			var prettyJSON bytes.Buffer
 			err := json.Indent(&prettyJSON, r.RawResponseBody, "", "  ")
 			if err == nil {
@@ -831,7 +835,29 @@ func (a *App) restoreRequest(g *gocui.Gui, idx int) {
 
 }
 
-func (a *App) ParseArgs(g *gocui.Gui) error {
+func (a *App) LoadConfig(configPath string) error {
+	if configPath == "" {
+		// Load config from default path
+		configPath = config.GetDefaultConfigLocation()
+	}
+
+	// If the config file doesn't exist, load the default config
+	if _, err := os.Stat(configPath); os.IsNotExist(err) {
+		a.config = &config.DefaultConfig
+		return nil
+	}
+
+	conf, err := config.LoadConfig(configPath)
+	if err != nil {
+		a.config = &config.DefaultConfig
+		return err
+	}
+
+	a.config = conf
+	return nil
+}
+
+func (a *App) ParseArgs(g *gocui.Gui, args []string) error {
 	a.Layout(g)
 	g.SetCurrentView(VIEWS[a.viewIndex])
 	vheader, err := g.View("headers")
@@ -843,16 +869,16 @@ func (a *App) ParseArgs(g *gocui.Gui) error {
 	vget.Clear()
 	add_content_type := false
 	arg_index := 1
-	args_len := len(os.Args)
+	args_len := len(args)
 	for arg_index < args_len {
-		arg := os.Args[arg_index]
+		arg := args[arg_index]
 		switch arg {
 		case "-H", "--header":
 			if arg_index == args_len-1 {
 				return errors.New("No header value specified")
 			}
 			arg_index += 1
-			header := os.Args[arg_index]
+			header := args[arg_index]
 			fmt.Fprintf(vheader, "%v\n", header)
 		case "-d", "--data":
 			if arg_index == args_len-1 {
@@ -865,7 +891,7 @@ func (a *App) ParseArgs(g *gocui.Gui) error {
 			arg_index += 1
 			add_content_type = true
 
-			data, _ := url.QueryUnescape(os.Args[arg_index])
+			data, _ := url.QueryUnescape(args[arg_index])
 			vdata, _ := g.View("data")
 			setViewTextAndCursor(vdata, data)
 		case "-X", "--request":
@@ -873,7 +899,7 @@ func (a *App) ParseArgs(g *gocui.Gui) error {
 				return errors.New("No HTTP method specified")
 			}
 			arg_index++
-			method := os.Args[arg_index]
+			method := args[arg_index]
 			if method == "POST" || method == "PUT" {
 				add_content_type = true
 			}
@@ -884,18 +910,18 @@ func (a *App) ParseArgs(g *gocui.Gui) error {
 				return errors.New("No timeout value specified")
 			}
 			arg_index += 1
-			timeout, err := strconv.Atoi(os.Args[arg_index])
+			timeout, err := strconv.Atoi(args[arg_index])
 			if err != nil || timeout <= 0 {
 				return errors.New("Invalid timeout value")
 			}
-			CLIENT.Timeout = time.Duration(timeout) * time.Millisecond
+			a.config.General.Timeout = config.Duration{time.Duration(timeout) * time.Millisecond}
 		case "--compressed":
 			vh, _ := g.View("headers")
 			if strings.Index(getViewValue(g, "headers"), "Accept-Encoding") == -1 {
 				fmt.Fprintln(vh, "Accept-Encoding: gzip, deflate")
 			}
 		default:
-			u := os.Args[arg_index]
+			u := args[arg_index]
 			if strings.Index(u, "http://") != 0 && strings.Index(u, "https://") != 0 {
 				u = "http://" + u
 			}
@@ -920,6 +946,12 @@ func (a *App) ParseArgs(g *gocui.Gui) error {
 		setViewTextAndCursor(vheader, "Content-Type: application/x-www-form-urlencoded")
 	}
 	return nil
+}
+
+// Apply startup config values. This is run after a.ParseArgs, so that
+// args can override the provided config values
+func (a *App) InitConfig() {
+	CLIENT.Timeout = a.config.General.Timeout.Duration
 }
 
 func initApp(a *App, g *gocui.Gui) {
@@ -995,7 +1027,9 @@ Key bindings:
 }
 
 func main() {
-	for _, arg := range os.Args {
+	configPath := ""
+	args := os.Args
+	for i, arg := range os.Args {
 		switch arg {
 		case "-h", "--help":
 			help()
@@ -1003,6 +1037,12 @@ func main() {
 		case "-v", "--version":
 			fmt.Printf("wuzz %v\n", VERSION)
 			return
+		case "-c", "--config":
+			configPath = os.Args[i+1]
+			args = append(os.Args[:i], os.Args[i+2:]...)
+			if _, err := os.Stat(configPath); os.IsNotExist(err) {
+				log.Fatal("Config file specified but does not exist: \"" + configPath + "\"")
+			}
 		}
 	}
 	g, err := gocui.NewGui(gocui.Output256)
@@ -1020,7 +1060,23 @@ func main() {
 
 	initApp(app, g)
 
-	err = app.ParseArgs(g)
+	// load config (must be done *before* app.ParseArgs, as arguments
+	// should be able to override config values). An empty string passed
+	// to LoadConfig results in LoadConfig loading the default config
+	// location. If there is no config, the values in
+	// config.DefaultConfig will be used.
+	err = app.LoadConfig(configPath)
+	if err != nil {
+		g.Close()
+		log.Fatalf("Error loading config file: %v", err)
+	}
+
+	err = app.ParseArgs(g, args)
+
+	// Some of the values in the config need to have some startup
+	// behavior associated with them. This is run after ParseArgs so
+	// that command-line arguments can override configuration values.
+	app.InitConfig()
 
 	if err != nil {
 		g.Close()
