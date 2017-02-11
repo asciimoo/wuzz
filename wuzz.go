@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"github.com/jroimartin/gocui"
+	"github.com/mattn/go-runewidth"
 )
 
 const VERSION = "0.1.0"
@@ -1007,6 +1008,9 @@ func main() {
 	g, err := gocui.NewGui(gocui.Output256)
 	if err != nil {
 		log.Panicln(err)
+	}
+	if runtime.GOOS == "windows" && runewidth.IsEastAsian() {
+		g.Ascii = true
 	}
 
 	app := &App{history: make([]*Request, 0, 31)}
