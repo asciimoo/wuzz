@@ -838,6 +838,7 @@ func (a *App) ParseArgs(g *gocui.Gui) error {
 	vheader.Clear()
 	vget, _ := g.View("get")
 	vget.Clear()
+	add_content_type := false
 	arg_index := 1
 	args_len := len(os.Args)
 	for arg_index < args_len {
@@ -859,9 +860,7 @@ func (a *App) ParseArgs(g *gocui.Gui) error {
 			setViewTextAndCursor(vmethod, "POST")
 
 			arg_index += 1
-
-			vgh, _ := g.View("headers")
-			setViewTextAndCursor(vgh, "Content-Type: application/x-www-form-urlencoded")
+			add_content_type = true
 
 			data, _ := url.QueryUnescape(os.Args[arg_index])
 			vdata, _ := g.View("data")
@@ -909,6 +908,9 @@ func (a *App) ParseArgs(g *gocui.Gui) error {
 			setViewTextAndCursor(vurl, parsed_url.String())
 		}
 		arg_index += 1
+	}
+	if add_content_type && strings.Index(getViewValue(g, "headers"), "Content-Type") == -1 {
+		setViewTextAndCursor(vheader, "Content-Type: application/x-www-form-urlencoded")
 	}
 	return nil
 }
