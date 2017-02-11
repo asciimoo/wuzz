@@ -27,7 +27,7 @@ Keybinding                              | Description
 <kbd>Ctrl+K</kbd>, <kbd>Shift+Tab</kbd> | Previous view
 <kbd>Ctlr+J</kbd>, <kbd>Tab</kbd>       | Next view
 <kbd>Ctrl+H</kbd>, <kbd>Alt+H</kbd>     | Toggle history
-<kbd>Ctrl+U</kbd>                       | Export as cURL command
+<kbd>Ctrl+E</kbd>                       | Export as cURL command
 <kbd>Down</kbd>                         | Move down one view line
 <kbd>Up</kbd>                           | Move up one view line
 <kbd>Page down</kbd>                    | Move down one view page
