@@ -21,9 +21,9 @@ import (
 
 	"github.com/asciimoo/wuzz/config"
 
+	"crypto/tls"
 	"github.com/jroimartin/gocui"
 	"github.com/mattn/go-runewidth"
-	"crypto/tls"
 )
 
 const VERSION = "0.1.0"
