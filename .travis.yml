@@ -1,9 +1,11 @@
 language: go
 go:
+  - 1.7.5
   - tip # latest
 os:
   - linux
-  - osx
+  # remove osx, getting vm from travis is extremely slow
+  # - osx
 env:
   - "PATH=/home/travis/gopath/bin:$PATH"
 script:

@@ -18,9 +18,14 @@ import (
 	"strings"
 	"time"
 
-	"github.com/nwidger/gocui"
+	"github.com/asciimoo/wuzz/config"
+
+	"github.com/jroimartin/gocui"
+	"github.com/mattn/go-runewidth"
 	"github.com/nwidger/jsoncolor"
 )
+
+const VERSION = "0.1.0"
 
 var METHODS []string = []string{
 	http.MethodGet,
@@ -64,6 +69,8 @@ var VIEWS []string = []string{
 	"response-body",
 }
 
+var defaultEditor ViewEditor
+
 const MIN_WIDTH = 60
 const MIN_HEIGHT = 20
 
@@ -83,6 +90,7 @@ type App struct {
 	historyIndex int
 	currentPopup string
 	history      []*Request
+	config       *config.Config
 }
 
 type ViewEditor struct {
@@ -93,14 +101,20 @@ type ViewEditor struct {
 }
 
 type SearchEditor struct {
-	app *App
-	g   *gocui.Gui
+	wuzzEditor *ViewEditor
+}
+
+// The singlelineEditor removes multilines capabilities
+type singlelineEditor struct {
+	wuzzEditor gocui.Editor
 }
 
 func init() {
 	TRANSPORT.DisableCompression = true
 	CLIENT.Transport = TRANSPORT
 }
+
+// Editor funcs
 
 func (e *ViewEditor) Edit(v *gocui.View, key gocui.Key, ch rune, mod gocui.Modifier) {
 	// handle back-tab (\033[Z) sequence
@@ -122,12 +136,43 @@ func (e *ViewEditor) Edit(v *gocui.View, key gocui.Key, ch rune, mod gocui.Modif
 }
 
 func (e *SearchEditor) Edit(v *gocui.View, key gocui.Key, ch rune, mod gocui.Modifier) {
-	gocui.DefaultEditor.Edit(v, key, ch, mod)
-	e.g.Execute(func(g *gocui.Gui) error {
-		e.app.PrintBody(g)
+	e.wuzzEditor.Edit(v, key, ch, mod)
+	e.wuzzEditor.g.Execute(func(g *gocui.Gui) error {
+		e.wuzzEditor.app.PrintBody(g)
 		return nil
 	})
 }
+
+// The singlelineEditor removes multilines capabilities
+func (e singlelineEditor) Edit(v *gocui.View, key gocui.Key, ch rune, mod gocui.Modifier) {
+	switch {
+	case (ch != 0 || key == gocui.KeySpace) && mod == 0:
+		e.wuzzEditor.Edit(v, key, ch, mod)
+		// At the end of the line the default gcui editor adds a whitespace
+		// Force him to remove
+		ox, _ := v.Cursor()
+		if ox > 1 && ox >= len(v.Buffer())-2 {
+			v.EditDelete(false)
+		}
+		return
+	case key == gocui.KeyEnter:
+		return
+	case key == gocui.KeyArrowRight:
+		ox, _ := v.Cursor()
+		if ox >= len(v.Buffer())-1 {
+			return
+		}
+	case key == gocui.KeyHome || key == gocui.KeyArrowUp:
+		v.SetCursor(0, 0)
+		return
+	case key == gocui.KeyEnd || key == gocui.KeyArrowDown:
+		v.SetCursor(len(v.Buffer())-1, 0)
+		return
+	}
+	e.wuzzEditor.Edit(v, key, ch, mod)
+}
+
+//
 
 func (a *App) Layout(g *gocui.Gui) error {
 	maxX, maxY := g.Size()
@@ -157,7 +202,9 @@ func (a *App) Layout(g *gocui.Gui) error {
 		setViewDefaults(v)
 		v.Title = "URL (F2) - press ctrl+r to send request"
 		v.Editable = true
-		setViewTextAndCursor(v, "https://")
+		v.Overwrite = false
+		v.Editor = &singlelineEditor{&defaultEditor}
+		setViewTextAndCursor(v, a.config.General.DefaultURLScheme+"://")
 	}
 	if v, err := g.SetView("get", 0, 3, splitX, splitY+1); err != nil {
 		if err != gocui.ErrUnknownView {
@@ -166,6 +213,7 @@ func (a *App) Layout(g *gocui.Gui) error {
 		setViewDefaults(v)
 		v.Editable = true
 		v.Title = "URL params (F3)"
+		v.Editor = &defaultEditor
 	}
 	if v, err := g.SetView("method", 0, splitY+1, splitX, splitY+3); err != nil {
 		if err != gocui.ErrUnknownView {
@@ -174,6 +222,8 @@ func (a *App) Layout(g *gocui.Gui) error {
 		setViewDefaults(v)
 		v.Editable = true
 		v.Title = "Method (F4)"
+		v.Editor = &singlelineEditor{&defaultEditor}
+
 		setViewTextAndCursor(v, "GET")
 	}
 	if v, err := g.SetView("data", 0, 3+splitY, splitX, 2*splitY+3); err != nil {
@@ -183,6 +233,7 @@ func (a *App) Layout(g *gocui.Gui) error {
 		setViewDefaults(v)
 		v.Editable = true
 		v.Title = "Request data (POST/PUT) (F5)"
+		v.Editor = &defaultEditor
 	}
 	if v, err := g.SetView("headers", 0, 3+(splitY*2), splitX, maxY-2); err != nil {
 		if err != gocui.ErrUnknownView {
@@ -192,6 +243,7 @@ func (a *App) Layout(g *gocui.Gui) error {
 		v.Wrap = false
 		v.Editable = true
 		v.Title = "Request headers (F6)"
+		v.Editor = &defaultEditor
 	}
 	if v, err := g.SetView("response-headers", splitX, 3, maxX-1, splitY+3); err != nil {
 		if err != gocui.ErrUnknownView {
@@ -229,7 +281,7 @@ func (a *App) Layout(g *gocui.Gui) error {
 		}
 		v.Frame = false
 		v.Editable = true
-		v.Editor = &SearchEditor{a, g}
+		v.Editor = &singlelineEditor{&SearchEditor{&defaultEditor}}
 		v.Wrap = true
 	}
 	return nil
@@ -376,7 +428,8 @@ func (a *App) SubmitRequest(g *gocui.Gui, _ *gocui.View) error {
 		}
 
 		// pretty-print json
-		if strings.Contains(response.Header.Get("Content-Type"), "application/json") {
+		if strings.Contains(response.Header.Get("Content-Type"), "application/json") &&
+			a.config.General.FormatJSON {
 			formatter := jsoncolor.NewFormatter()
 			buf := bytes.NewBuffer(make([]byte, 0, len(r.RawResponseBody)))
 			err := formatter.Format(buf, r.RawResponseBody)
@@ -448,7 +501,7 @@ func (a *App) PrintBody(g *gocui.Gui) {
 			} else {
 				vrb.Write(req.RawResponseBody)
 			}
-			if _, err := vrb.Line(0); err != nil {
+			if _, err := vrb.Line(0); !a.config.General.PreserveScrollPosition || err != nil {
 				vrb.SetOrigin(0, 0)
 			}
 			return nil
@@ -520,20 +573,22 @@ func (a *App) SetKeys(g *gocui.Gui) {
 		})
 	}
 
-	// history keybindings
-	g.SetKeybinding("history", gocui.KeyArrowDown, gocui.ModNone, func(g *gocui.Gui, v *gocui.View) error {
+	cursDown := func(g *gocui.Gui, v *gocui.View) error {
 		cx, cy := v.Cursor()
 		v.SetCursor(cx, cy+1)
 		return nil
-	})
-	g.SetKeybinding("history", gocui.KeyArrowUp, gocui.ModNone, func(g *gocui.Gui, v *gocui.View) error {
+	}
+	cursUp := func(g *gocui.Gui, v *gocui.View) error {
 		cx, cy := v.Cursor()
 		if cy > 0 {
 			cy -= 1
 		}
 		v.SetCursor(cx, cy)
 		return nil
-	})
+	}
+	// history keybindings
+	g.SetKeybinding("history", gocui.KeyArrowDown, gocui.ModNone, cursDown)
+	g.SetKeybinding("history", gocui.KeyArrowUp, gocui.ModNone, cursUp)
 	g.SetKeybinding("history", gocui.KeyEnter, gocui.ModNone, func(g *gocui.Gui, v *gocui.View) error {
 		_, cy := v.Cursor()
 		// TODO error
@@ -544,20 +599,28 @@ func (a *App) SetKeys(g *gocui.Gui) {
 		return nil
 	})
 
-	// history keybindings
-	g.SetKeybinding("method-list", gocui.KeyArrowDown, gocui.ModNone, func(g *gocui.Gui, v *gocui.View) error {
-		cx, cy := v.Cursor()
-		v.SetCursor(cx, cy+1)
-		return nil
-	})
-	g.SetKeybinding("method-list", gocui.KeyArrowUp, gocui.ModNone, func(g *gocui.Gui, v *gocui.View) error {
-		cx, cy := v.Cursor()
-		if cy > 0 {
-			cy -= 1
+	// method keybindings
+	g.SetKeybinding("method", gocui.KeyArrowDown, gocui.ModNone, func(g *gocui.Gui, v *gocui.View) error {
+		value := strings.TrimSpace(v.Buffer())
+		for i, val := range METHODS {
+			if val == value && i != len(METHODS)-1 {
+				setViewTextAndCursor(v, METHODS[i+1])
+			}
 		}
-		v.SetCursor(cx, cy)
 		return nil
 	})
+
+	g.SetKeybinding("method", gocui.KeyArrowUp, gocui.ModNone, func(g *gocui.Gui, v *gocui.View) error {
+		value := strings.TrimSpace(v.Buffer())
+		for i, val := range METHODS {
+			if val == value && i != 0 {
+				setViewTextAndCursor(v, METHODS[i-1])
+			}
+		}
+		return nil
+	})
+	g.SetKeybinding("method-list", gocui.KeyArrowDown, gocui.ModNone, cursDown)
+	g.SetKeybinding("method-list", gocui.KeyArrowUp, gocui.ModNone, cursUp)
 	g.SetKeybinding("method-list", gocui.KeyEnter, gocui.ModNone, func(g *gocui.Gui, v *gocui.View) error {
 		_, cy := v.Cursor()
 		v, _ = g.View("method")
@@ -773,7 +836,29 @@ func (a *App) restoreRequest(g *gocui.Gui, idx int) {
 
 }
 
-func (a *App) ParseArgs(g *gocui.Gui) error {
+func (a *App) LoadConfig(configPath string) error {
+	if configPath == "" {
+		// Load config from default path
+		configPath = config.GetDefaultConfigLocation()
+	}
+
+	// If the config file doesn't exist, load the default config
+	if _, err := os.Stat(configPath); os.IsNotExist(err) {
+		a.config = &config.DefaultConfig
+		return nil
+	}
+
+	conf, err := config.LoadConfig(configPath)
+	if err != nil {
+		a.config = &config.DefaultConfig
+		return err
+	}
+
+	a.config = conf
+	return nil
+}
+
+func (a *App) ParseArgs(g *gocui.Gui, args []string) error {
 	a.Layout(g)
 	g.SetCurrentView(VIEWS[a.viewIndex])
 	vheader, err := g.View("headers")
@@ -783,17 +868,18 @@ func (a *App) ParseArgs(g *gocui.Gui) error {
 	vheader.Clear()
 	vget, _ := g.View("get")
 	vget.Clear()
+	add_content_type := false
 	arg_index := 1
-	args_len := len(os.Args)
+	args_len := len(args)
 	for arg_index < args_len {
-		arg := os.Args[arg_index]
+		arg := args[arg_index]
 		switch arg {
 		case "-H", "--header":
 			if arg_index == args_len-1 {
 				return errors.New("No header value specified")
 			}
 			arg_index += 1
-			header := os.Args[arg_index]
+			header := args[arg_index]
 			fmt.Fprintf(vheader, "%v\n", header)
 		case "-d", "--data":
 			if arg_index == args_len-1 {
@@ -804,7 +890,9 @@ func (a *App) ParseArgs(g *gocui.Gui) error {
 			setViewTextAndCursor(vmethod, "POST")
 
 			arg_index += 1
-			data, _ := url.QueryUnescape(os.Args[arg_index])
+			add_content_type = true
+
+			data, _ := url.QueryUnescape(args[arg_index])
 			vdata, _ := g.View("data")
 			setViewTextAndCursor(vdata, data)
 		case "-X", "--request":
@@ -812,25 +900,29 @@ func (a *App) ParseArgs(g *gocui.Gui) error {
 				return errors.New("No HTTP method specified")
 			}
 			arg_index++
+			method := args[arg_index]
+			if method == "POST" || method == "PUT" {
+				add_content_type = true
+			}
 			vmethod, _ := g.View("method")
-			setViewTextAndCursor(vmethod, os.Args[arg_index])
+			setViewTextAndCursor(vmethod, method)
 		case "-t", "--timeout":
 			if arg_index == args_len-1 {
 				return errors.New("No timeout value specified")
 			}
 			arg_index += 1
-			timeout, err := strconv.Atoi(os.Args[arg_index])
+			timeout, err := strconv.Atoi(args[arg_index])
 			if err != nil || timeout <= 0 {
 				return errors.New("Invalid timeout value")
 			}
-			CLIENT.Timeout = time.Duration(timeout) * time.Millisecond
+			a.config.General.Timeout = config.Duration{time.Duration(timeout) * time.Millisecond}
 		case "--compressed":
 			vh, _ := g.View("headers")
 			if strings.Index(getViewValue(g, "headers"), "Accept-Encoding") == -1 {
 				fmt.Fprintln(vh, "Accept-Encoding: gzip, deflate")
 			}
 		default:
-			u := os.Args[arg_index]
+			u := args[arg_index]
 			if strings.Index(u, "http://") != 0 && strings.Index(u, "https://") != 0 {
 				u = "http://" + u
 			}
@@ -851,7 +943,16 @@ func (a *App) ParseArgs(g *gocui.Gui) error {
 		}
 		arg_index += 1
 	}
+	if add_content_type && strings.Index(getViewValue(g, "headers"), "Content-Type") == -1 {
+		setViewTextAndCursor(vheader, "Content-Type: application/x-www-form-urlencoded")
+	}
 	return nil
+}
+
+// Apply startup config values. This is run after a.ParseArgs, so that
+// args can override the provided config values
+func (a *App) InitConfig() {
+	CLIENT.Timeout = a.config.General.Timeout.Duration
 }
 
 func initApp(a *App, g *gocui.Gui) {
@@ -909,7 +1010,12 @@ func quit(g *gocui.Gui, v *gocui.View) error {
 func help() {
 	fmt.Println(`wuzz - Interactive cli tool for HTTP inspection
 
-Usage: wuzz [-H|--header=HEADER]... [-d|--data=POST_DATA] [-X|--request=METHOD] [-t|--timeout=MSECS] [URL]
+Usage: wuzz [-H|--header HEADER]... [-d|--data POST_DATA] [-X|--request METHOD] [-t|--timeout MSECS] [URL]
+
+Other command line options:
+  -c, --config PATH   Specify custom configuration file
+  -h, --help          Show this
+  -v, --version       Display version number
 
 Key bindings:
   ctrl+r              Send request
@@ -923,25 +1029,56 @@ Key bindings:
 }
 
 func main() {
-	for _, arg := range os.Args {
-		if arg == "-h" || arg == "--help" {
+	configPath := ""
+	args := os.Args
+	for i, arg := range os.Args {
+		switch arg {
+		case "-h", "--help":
 			help()
 			return
+		case "-v", "--version":
+			fmt.Printf("wuzz %v\n", VERSION)
+			return
+		case "-c", "--config":
+			configPath = os.Args[i+1]
+			args = append(os.Args[:i], os.Args[i+2:]...)
+			if _, err := os.Stat(configPath); os.IsNotExist(err) {
+				log.Fatal("Config file specified but does not exist: \"" + configPath + "\"")
+			}
 		}
 	}
 	g, err := gocui.NewGui(gocui.Output256)
 	if err != nil {
 		log.Panicln(err)
 	}
+	if runtime.GOOS == "windows" && runewidth.IsEastAsian() {
+		g.ASCII = true
+	}
 
 	app := &App{history: make([]*Request, 0, 31)}
 
 	// overwrite default editor
-	gocui.DefaultEditor = &ViewEditor{app, g, false, gocui.DefaultEditor}
+	defaultEditor = ViewEditor{app, g, false, gocui.DefaultEditor}
 
 	initApp(app, g)
 
-	err = app.ParseArgs(g)
+	// load config (must be done *before* app.ParseArgs, as arguments
+	// should be able to override config values). An empty string passed
+	// to LoadConfig results in LoadConfig loading the default config
+	// location. If there is no config, the values in
+	// config.DefaultConfig will be used.
+	err = app.LoadConfig(configPath)
+	if err != nil {
+		g.Close()
+		log.Fatalf("Error loading config file: %v", err)
+	}
+
+	err = app.ParseArgs(g, args)
+
+	// Some of the values in the config need to have some startup
+	// behavior associated with them. This is run after ParseArgs so
+	// that command-line arguments can override configuration values.
+	app.InitConfig()
 
 	if err != nil {
 		g.Close()
