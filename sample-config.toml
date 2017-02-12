@@ -4,3 +4,4 @@ timeout = "1m"
 defaultURLScheme = "https"
 formatJSON = true
 preserveScrollPosition = true
+insecure = false

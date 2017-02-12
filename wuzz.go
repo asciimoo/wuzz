@@ -23,6 +23,7 @@ import (
 
 	"github.com/jroimartin/gocui"
 	"github.com/mattn/go-runewidth"
+	"crypto/tls"
 )
 
 const VERSION = "0.1.0"
@@ -920,6 +921,8 @@ func (a *App) ParseArgs(g *gocui.Gui, args []string) error {
 			if strings.Index(getViewValue(g, "headers"), "Accept-Encoding") == -1 {
 				fmt.Fprintln(vh, "Accept-Encoding: gzip, deflate")
 			}
+		case "--insecure":
+			a.config.General.Insecure = true
 		default:
 			u := args[arg_index]
 			if strings.Index(u, "http://") != 0 && strings.Index(u, "https://") != 0 {
@@ -952,6 +955,7 @@ func (a *App) ParseArgs(g *gocui.Gui, args []string) error {
 // args can override the provided config values
 func (a *App) InitConfig() {
 	CLIENT.Timeout = a.config.General.Timeout.Duration
+	TRANSPORT.TLSClientConfig = &tls.Config{InsecureSkipVerify: a.config.General.Insecure}
 }
 
 func initApp(a *App, g *gocui.Gui) {
