@@ -667,19 +667,22 @@ func (a *App) SetKeys(g *gocui.Gui) {
 			saveResult = "Error saving response: " + err.Error()
 		}
 
+		popupTitle := "Save Result (press enter to close)"
+
 		saveResHeight := 1
 		saveResWidth := len(saveResult) + 1
+		if len(popupTitle)+2 > saveResWidth {
+			saveResWidth = len(popupTitle) + 2
+		}
 		maxX, _ := g.Size()
-
 		if saveResWidth > maxX {
 			saveResHeight = saveResWidth/maxX + 1
 			saveResWidth = maxX
 		}
 
 		saveResultPopup, err := a.CreatePopupView("save-result", saveResWidth, saveResHeight, g)
-		saveResultPopup.Title = "Save Result (press enter to close)"
+		saveResultPopup.Title = popupTitle
 		setViewTextAndCursor(saveResultPopup, saveResult)
-
 		g.SetViewOnTop("save-result")
 		g.SetCurrentView("save-result")
 
