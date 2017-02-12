@@ -750,7 +750,7 @@ func (a *App) ExportAsCURLCommand(g *gocui.Gui, _ *gocui.View) (err error) {
 	}
 	if strings.HasPrefix(u.Host, ":") {
 		// cURL doesn't like hostless urls
-		u.Host = "localhost" + u.Host
+		u.Host = "127.0.0.1" + u.Host
 	}
 
 	// Get the request method
