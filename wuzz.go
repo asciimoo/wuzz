@@ -351,7 +351,21 @@ func (a *App) SubmitRequest(g *gocui.Gui, _ *gocui.View) error {
 			})
 			return nil
 		}
-		u.RawQuery = strings.Replace(getViewValue(g, "get"), "\n", "&", -1)
+
+		q, err := url.ParseQuery(strings.Replace(getViewValue(g, "get"), "\n", "&", -1))
+		if err != nil {
+			g.Execute(func(g *gocui.Gui) error {
+				vrb, _ := g.View("response-body")
+				fmt.Fprintf(vrb, "Invalid GET parameters: %v", err)
+				return nil
+			})
+			return nil
+		}
+		originalQuery := u.Query()
+		for k, v := range q {
+			originalQuery.Add(k, strings.Join(v, ""))
+		}
+		u.RawQuery = originalQuery.Encode()
 		r.GetParams = u.RawQuery
 
 		// parse method
