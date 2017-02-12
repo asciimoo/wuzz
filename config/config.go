@@ -31,6 +31,7 @@ type Config struct {
 type GeneralOptions struct {
 	Timeout                Duration
 	FormatJSON             bool
+	Insecure               bool
 	PreserveScrollPosition bool
 	DefaultURLScheme       string
 }
@@ -43,6 +44,7 @@ var DefaultConfig = Config{
 			defaultTimeoutDuration,
 		},
 		FormatJSON:             true,
+		Insecure:               false,
 		PreserveScrollPosition: true,
 		DefaultURLScheme:       "https",
 	},
