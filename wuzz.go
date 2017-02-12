@@ -428,17 +428,6 @@ func (a *App) SubmitRequest(g *gocui.Gui, _ *gocui.View) error {
 			r.RawResponseBody = bodyBytes
 		}
 
-		// pretty-print json
-		if strings.Contains(response.Header.Get("Content-Type"), "application/json") &&
-			a.config.General.FormatJSON {
-			formatter := jsoncolor.NewFormatter()
-			buf := bytes.NewBuffer(make([]byte, 0, len(r.RawResponseBody)))
-			err := formatter.Format(buf, r.RawResponseBody)
-			if err == nil {
-				r.RawResponseBody = buf.Bytes()
-			}
-		}
-
 		// add to history
 		a.history = append(a.history, r)
 		a.historyIndex = len(a.history) - 1
@@ -492,6 +481,18 @@ func (a *App) PrintBody(g *gocui.Gui) {
 		}
 		vrb, _ := g.View("response-body")
 		vrb.Clear()
+
+		responseBody := req.RawResponseBody
+		// pretty-print json
+		if strings.Contains(req.ContentType, "application/json") && a.config.General.FormatJSON {
+			formatter := jsoncolor.NewFormatter()
+			buf := bytes.NewBuffer(make([]byte, 0, len(req.RawResponseBody)))
+			err := formatter.Format(buf, req.RawResponseBody)
+			if err == nil {
+				responseBody = buf.Bytes()
+			}
+		}
+
 		is_binary := strings.Index(req.ContentType, "text") == -1 && strings.Index(req.ContentType, "application") == -1
 		search_text := getViewValue(g, "search")
 		if search_text == "" || is_binary {
@@ -500,7 +501,7 @@ func (a *App) PrintBody(g *gocui.Gui) {
 				vrb.Title += " [binary content]"
 				fmt.Fprint(vrb, hex.Dump(req.RawResponseBody))
 			} else {
-				vrb.Write(req.RawResponseBody)
+				vrb.Write(responseBody)
 			}
 			if _, err := vrb.Line(0); !a.config.General.PreserveScrollPosition || err != nil {
 				vrb.SetOrigin(0, 0)
