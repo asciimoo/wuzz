@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -38,18 +39,6 @@ var METHODS []string = []string{
 	http.MethodTrace,
 	http.MethodConnect,
 	http.MethodHead,
-}
-
-var SHORTCUTS map[gocui.Key]string = map[gocui.Key]string{
-	// gocui.KeyF1 reserved for help popup
-	gocui.KeyF2: "url",
-	gocui.KeyF3: "get",
-	gocui.KeyF4: "method",
-	gocui.KeyF5: "data",
-	gocui.KeyF6: "headers",
-	gocui.KeyF7: "search",
-	gocui.KeyF8: "response-headers",
-	gocui.KeyF9: "response-body",
 }
 
 var CLIENT *http.Client = &http.Client{
@@ -201,7 +190,7 @@ func (a *App) Layout(g *gocui.Gui) error {
 			return err
 		}
 		setViewDefaults(v)
-		v.Title = "URL (F2) - press ctrl+r to send request"
+		v.Title = "URL - press F1 for help"
 		v.Editable = true
 		v.Overwrite = false
 		v.Editor = &singlelineEditor{&defaultEditor}
@@ -213,7 +202,7 @@ func (a *App) Layout(g *gocui.Gui) error {
 		}
 		setViewDefaults(v)
 		v.Editable = true
-		v.Title = "URL params (F3)"
+		v.Title = "URL params"
 		v.Editor = &defaultEditor
 	}
 	if v, err := g.SetView("method", 0, splitY+1, splitX, splitY+3); err != nil {
@@ -222,7 +211,7 @@ func (a *App) Layout(g *gocui.Gui) error {
 		}
 		setViewDefaults(v)
 		v.Editable = true
-		v.Title = "Method (F4)"
+		v.Title = "Method"
 		v.Editor = &singlelineEditor{&defaultEditor}
 
 		setViewTextAndCursor(v, "GET")
@@ -233,7 +222,7 @@ func (a *App) Layout(g *gocui.Gui) error {
 		}
 		setViewDefaults(v)
 		v.Editable = true
-		v.Title = "Request data (POST/PUT) (F5)"
+		v.Title = "Request data (POST/PUT)"
 		v.Editor = &defaultEditor
 	}
 	if v, err := g.SetView("headers", 0, 3+(splitY*2), splitX, maxY-2); err != nil {
@@ -243,7 +232,7 @@ func (a *App) Layout(g *gocui.Gui) error {
 		setViewDefaults(v)
 		v.Wrap = false
 		v.Editable = true
-		v.Title = "Request headers (F6)"
+		v.Title = "Request headers"
 		v.Editor = &defaultEditor
 	}
 	if v, err := g.SetView("response-headers", splitX, 3, maxX-1, splitY+3); err != nil {
@@ -251,7 +240,7 @@ func (a *App) Layout(g *gocui.Gui) error {
 			return err
 		}
 		setViewDefaults(v)
-		v.Title = "Response headers (F8)"
+		v.Title = "Response headers"
 		v.Editable = true
 		v.Editor = &ViewEditor{a, g, false, gocui.EditorFunc(func(v *gocui.View, key gocui.Key, ch rune, mod gocui.Modifier) {
 			return
@@ -262,7 +251,7 @@ func (a *App) Layout(g *gocui.Gui) error {
 			return err
 		}
 		setViewDefaults(v)
-		v.Title = "Response body (F9)"
+		v.Title = "Response body"
 		v.Editable = true
 		v.Editor = &ViewEditor{a, g, false, gocui.EditorFunc(func(v *gocui.View, key gocui.Key, ch rune, mod gocui.Modifier) {
 			return
@@ -510,7 +499,7 @@ func (a *App) PrintBody(g *gocui.Gui) {
 		is_binary := strings.Index(req.ContentType, "text") == -1 && strings.Index(req.ContentType, "application") == -1
 		search_text := getViewValue(g, "search")
 		if search_text == "" || is_binary {
-			vrb.Title = "Response body (F9)"
+			vrb.Title = "Response body"
 			if is_binary {
 				vrb.Title += " [binary content]"
 				fmt.Fprint(vrb, hex.Dump(req.RawResponseBody))
@@ -542,52 +531,111 @@ func (a *App) PrintBody(g *gocui.Gui) {
 	})
 }
 
-func (a *App) SetKeys(g *gocui.Gui) {
-	// global keybindings
-	g.SetManagerFunc(a.Layout)
+func parseKey(k string) (interface{}, gocui.Modifier, error) {
+	mod := gocui.ModNone
+	if strings.Index(k, "Alt") == 0 {
+		mod = gocui.ModAlt
+		k = k[3:]
+	}
+	switch len(k) {
+	case 0:
+		return 0, 0, errors.New("Empty key string")
+	case 1:
+		if mod != gocui.ModNone {
+			k = strings.ToLower(k)
+		}
+		return rune(k[0]), mod, nil
+	}
 
-	g.SetKeybinding("", gocui.KeyCtrlC, gocui.ModNone, quit)
+	key, found := KEYS[k]
+	if !found {
+		return 0, 0, fmt.Errorf("Unknown key: %v", k)
+	}
+	return key, mod, nil
+}
 
-	g.SetKeybinding("", gocui.KeyTab, gocui.ModNone, a.NextView)
-	g.SetKeybinding("", gocui.KeyCtrlJ, gocui.ModNone, a.NextView)
-	g.SetKeybinding("", gocui.KeyCtrlK, gocui.ModNone, a.PrevView)
-	g.SetKeybinding("method", gocui.KeyEnter, gocui.ModNone, a.ToggleMethodlist)
+func (a *App) setKey(g *gocui.Gui, keyStr, commandStr, viewName string) error {
+	if commandStr == "" {
+		return nil
+	}
+	key, mod, err := parseKey(keyStr)
+	if err != nil {
+		return err
+	}
+	commandParts := strings.SplitN(commandStr, " ", 2)
+	command := commandParts[0]
+	var commandArgs string
+	if len(commandParts) == 2 {
+		commandArgs = commandParts[1]
+	}
+	keyFnGen, found := COMMANDS[command]
+	if !found {
+		return fmt.Errorf("Unknown command: %v", command)
+	}
+	keyFn := keyFnGen(commandArgs, a)
+	if err := g.SetKeybinding(viewName, key, mod, keyFn); err != nil {
+		return fmt.Errorf("Failed to set key '%v': %v", keyStr, err)
+	}
+	return nil
+}
 
-	// Cycle for each SHORTCUTS
-	for key, view := range SHORTCUTS {
-		handler := func(name string) func(*gocui.Gui, *gocui.View) error {
-			return func(g *gocui.Gui, _ *gocui.View) error {
-				return a.setViewByName(g, name)
+func (a *App) printViewKeybindings(v io.Writer, viewName string) {
+	keys, found := a.config.Keys[viewName]
+	if !found {
+		return
+	}
+	mk := make([]string, len(keys))
+	i := 0
+	for k, _ := range keys {
+		mk[i] = k
+		i++
+	}
+	sort.Strings(mk)
+	fmt.Fprintf(v, "\n %v\n", viewName)
+	for _, key := range mk {
+		fmt.Fprintf(v, "  %-15v %v\n", key, keys[key])
+	}
+}
+
+func (a *App) SetKeys(g *gocui.Gui) error {
+	// load config keybindings
+	for viewName, keys := range a.config.Keys {
+		if viewName == "global" {
+			viewName = ""
+		}
+		for keyStr, commandStr := range keys {
+			if err := a.setKey(g, keyStr, commandStr, viewName); err != nil {
+				return err
 			}
 		}
-		g.SetKeybinding("", key, gocui.ModNone, handler(view))
 	}
 
-	if runtime.GOOS != "windows" {
-		g.SetKeybinding("", gocui.KeyCtrlH, gocui.ModNone, a.ToggleHistory)
-	}
-	g.SetKeybinding("", 'h', gocui.ModAlt, a.ToggleHistory)
-
-	g.SetKeybinding("", gocui.KeyCtrlS, gocui.ModNone, a.OpenSaveDialog)
-
-	g.SetKeybinding("", gocui.KeyCtrlR, gocui.ModNone, a.SubmitRequest)
-	g.SetKeybinding("url", gocui.KeyEnter, gocui.ModNone, a.SubmitRequest)
-
-	// responses common keybindings
-	for _, view := range []string{"response-body", "response-headers"} {
-		g.SetKeybinding(view, gocui.KeyArrowUp, gocui.ModNone, scrollViewUp)
-		g.SetKeybinding(view, gocui.KeyArrowDown, gocui.ModNone, scrollViewDown)
-		g.SetKeybinding(view, gocui.KeyPgup, gocui.ModNone, func(_ *gocui.Gui, v *gocui.View) error {
-			_, height := v.Size()
-			scrollView(v, -height*2/3)
+	g.SetKeybinding("", gocui.KeyF1, gocui.ModNone, func(g *gocui.Gui, v *gocui.View) error {
+		if a.currentPopup == "help" {
+			a.closePopup(g, "help")
 			return nil
-		})
-		g.SetKeybinding(view, gocui.KeyPgdn, gocui.ModNone, func(_ *gocui.Gui, v *gocui.View) error {
-			_, height := v.Size()
-			scrollView(v, height*2/3)
-			return nil
-		})
-	}
+		}
+
+		help, err := a.CreatePopupView("help", 60, 40, g)
+		if err != nil {
+			return err
+		}
+		help.Title = "Help"
+		help.Highlight = false
+		fmt.Fprint(help, "Keybindings:\n")
+		a.printViewKeybindings(help, "global")
+		for _, viewName := range VIEWS {
+			if _, found := a.config.Keys[viewName]; !found {
+				continue
+			}
+			a.printViewKeybindings(help, viewName)
+		}
+		g.SetViewOnTop("help")
+		g.SetCurrentView("help")
+		return nil
+	})
+
+	g.SetKeybinding("method", gocui.KeyEnter, gocui.ModNone, a.ToggleMethodlist)
 
 	cursDown := func(g *gocui.Gui, v *gocui.View) error {
 		cx, cy := v.Cursor()
@@ -698,6 +746,7 @@ func (a *App) SetKeys(g *gocui.Gui) {
 		a.closePopup(g, "save-result")
 		return nil
 	})
+	return nil
 }
 
 func (a *App) closePopup(g *gocui.Gui, viewname string) {
@@ -717,8 +766,8 @@ func (a *App) CreatePopupView(name string, width, height int, g *gocui.Gui) (v *
 
 	g.Cursor = false
 	maxX, maxY := g.Size()
-	if height > maxY-1 {
-		height = maxY - 1
+	if height > maxY-4 {
+		height = maxY - 4
 	}
 	if width > maxX-4 {
 		width = maxX - 4
@@ -864,12 +913,14 @@ func (a *App) LoadConfig(configPath string) error {
 	// If the config file doesn't exist, load the default config
 	if _, err := os.Stat(configPath); os.IsNotExist(err) {
 		a.config = &config.DefaultConfig
+		a.config.Keys = config.DefaultKeys
 		return nil
 	}
 
 	conf, err := config.LoadConfig(configPath)
 	if err != nil {
 		a.config = &config.DefaultConfig
+		a.config.Keys = config.DefaultKeys
 		return err
 	}
 
@@ -982,7 +1033,7 @@ func initApp(a *App, g *gocui.Gui) {
 	g.InputEsc = false
 	g.BgColor = gocui.ColorDefault
 	g.FgColor = gocui.ColorDefault
-	a.SetKeys(g)
+	g.SetManagerFunc(a.Layout)
 }
 
 func getViewValue(g *gocui.Gui, name string) string {
@@ -991,27 +1042,6 @@ func getViewValue(g *gocui.Gui, name string) string {
 		return ""
 	}
 	return strings.TrimSpace(v.Buffer())
-}
-
-func scrollView(v *gocui.View, dy int) error {
-	v.Autoscroll = false
-	ox, oy := v.Origin()
-	if oy+dy < 0 {
-		dy = -oy
-	}
-	if _, err := v.Line(dy); dy > 0 && err != nil {
-		dy = 0
-	}
-	v.SetOrigin(ox, oy+dy)
-	return nil
-}
-
-func scrollViewUp(_ *gocui.Gui, v *gocui.View) error {
-	return scrollView(v, -1)
-}
-
-func scrollViewDown(_ *gocui.Gui, v *gocui.View) error {
-	return scrollView(v, 1)
 }
 
 func setViewDefaults(v *gocui.View) {
@@ -1023,10 +1053,6 @@ func setViewTextAndCursor(v *gocui.View, s string) {
 	v.Clear()
 	fmt.Fprint(v, s)
 	v.SetCursor(len(s), 0)
-}
-
-func quit(g *gocui.Gui, v *gocui.View) error {
-	return gocui.ErrQuit
 }
 
 func help() {
@@ -1101,6 +1127,14 @@ func main() {
 	// behavior associated with them. This is run after ParseArgs so
 	// that command-line arguments can override configuration values.
 	app.InitConfig()
+
+	if err != nil {
+		g.Close()
+		fmt.Println("Error!", err)
+		os.Exit(1)
+	}
+
+	err = app.SetKeys(g)
 
 	if err != nil {
 		g.Close()
