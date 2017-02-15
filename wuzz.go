@@ -26,7 +26,48 @@ import (
 	"github.com/nwidger/jsoncolor"
 )
 
-const VERSION = "0.1.0"
+const VERSION = "0.1.1"
+
+const TIMEOUT_DURATION = 5 // in seconds
+const WINDOWS_OS = "windows"
+
+const (
+	ALL_VIEWS             = ""
+
+	URL_VIEW              = "url"
+	URL_PARAMS_VIEW       = "get"
+	REQUEST_METHOD_VIEW   = "method"
+	REQUEST_DATA_VIEW     = "data"
+	REQUEST_HEADERS_VIEW  = "headers"
+	SEARCH_VIEW           = "search"
+	RESPONSE_HEADERS_VIEW = "response-headers"
+	RESPONSE_BODY_VIEW    = "response-body"
+
+	PROMPT_VIEW           = "prompt"
+	POPUP_VIEW            = "popup_view"
+	ERROR_VIEW            = "error_view"
+	HISTORY_VIEW          = "history"
+	SAVE_DIALOG_VIEW      = "save-dialog"
+	SAVE_RESULT_VIEW      = "save-result"
+	METHOD_LIST_VIEW      = "method-list"
+)
+
+var VIEW_TITLES = map[string]string{
+	URL_VIEW:              "URL (F2) - press ctrl+r to send request",
+	URL_PARAMS_VIEW:       "URL params (F3)",
+	REQUEST_METHOD_VIEW:   "Method (F4)",
+	REQUEST_DATA_VIEW:     "Request data (POST/PUT) (F5)",
+	REQUEST_HEADERS_VIEW:  "Request headers (F6)",
+	SEARCH_VIEW:           "search> ",
+	RESPONSE_HEADERS_VIEW: "Response headers (F8)",
+	RESPONSE_BODY_VIEW:    "Response body (F9)",
+
+	POPUP_VIEW:	       "Info",
+	ERROR_VIEW:            "Error",
+	HISTORY_VIEW:          "History",
+	SAVE_DIALOG_VIEW:      "Save Response (enter to submit, ctrl+q to cancel)",
+	METHOD_LIST_VIEW:      "Methods",
+}
 
 var METHODS []string = []string{
 	http.MethodGet,
@@ -39,41 +80,44 @@ var METHODS []string = []string{
 	http.MethodConnect,
 	http.MethodHead,
 }
+const DEFAULT_METHOD = http.MethodGet
 
 var SHORTCUTS map[gocui.Key]string = map[gocui.Key]string{
 	// gocui.KeyF1 reserved for help popup
-	gocui.KeyF2: "url",
-	gocui.KeyF3: "get",
-	gocui.KeyF4: "method",
-	gocui.KeyF5: "data",
-	gocui.KeyF6: "headers",
-	gocui.KeyF7: "search",
-	gocui.KeyF8: "response-headers",
-	gocui.KeyF9: "response-body",
+	gocui.KeyF2: URL_VIEW,
+	gocui.KeyF3: URL_PARAMS_VIEW,
+	gocui.KeyF4: REQUEST_METHOD_VIEW,
+	gocui.KeyF5: REQUEST_DATA_VIEW,
+	gocui.KeyF6: REQUEST_HEADERS_VIEW,
+	gocui.KeyF7: SEARCH_VIEW,
+	gocui.KeyF8: RESPONSE_HEADERS_VIEW,
+	gocui.KeyF9: RESPONSE_BODY_VIEW,
 }
 
 var CLIENT *http.Client = &http.Client{
-	Timeout: time.Duration(5 * time.Second),
+	Timeout: time.Duration(TIMEOUT_DURATION * time.Second),
 }
 var TRANSPORT *http.Transport = &http.Transport{
 	Proxy: http.ProxyFromEnvironment,
 }
 
 var VIEWS []string = []string{
-	"url",
-	"get",
-	"method",
-	"data",
-	"headers",
-	"search",
-	"response-headers",
-	"response-body",
+	URL_VIEW,
+	URL_PARAMS_VIEW,
+	REQUEST_METHOD_VIEW,
+	REQUEST_DATA_VIEW,
+	REQUEST_HEADERS_VIEW,
+	SEARCH_VIEW,
+	RESPONSE_HEADERS_VIEW,
+	RESPONSE_BODY_VIEW,
 }
 
 var defaultEditor ViewEditor
 
-const MIN_WIDTH = 60
-const MIN_HEIGHT = 20
+const (
+	MIN_WIDTH = 60
+	MIN_HEIGHT = 20
+)
 
 type Request struct {
 	Url             string
@@ -105,8 +149,8 @@ type SearchEditor struct {
 	wuzzEditor *ViewEditor
 }
 
-// The singlelineEditor removes multilines capabilities
-type singlelineEditor struct {
+// The singleLineEditor removes multilines capabilities
+type singleLineEditor struct {
 	wuzzEditor gocui.Editor
 }
 
@@ -144,8 +188,8 @@ func (e *SearchEditor) Edit(v *gocui.View, key gocui.Key, ch rune, mod gocui.Mod
 	})
 }
 
-// The singlelineEditor removes multilines capabilities
-func (e singlelineEditor) Edit(v *gocui.View, key gocui.Key, ch rune, mod gocui.Modifier) {
+// The singleLineEditor removes multilines capabilities
+func (e singleLineEditor) Edit(v *gocui.View, key gocui.Key, ch rune, mod gocui.Modifier) {
 	switch {
 	case (ch != 0 || key == gocui.KeySpace) && mod == 0:
 		e.wuzzEditor.Edit(v, key, ch, mod)
@@ -178,111 +222,111 @@ func (e singlelineEditor) Edit(v *gocui.View, key gocui.Key, ch rune, mod gocui.
 func (a *App) Layout(g *gocui.Gui) error {
 	maxX, maxY := g.Size()
 	if maxX < MIN_WIDTH || maxY < MIN_HEIGHT {
-		if v, err := g.SetView("error", 0, 0, maxX-1, maxY-1); err != nil {
+		if v, err := g.SetView(ERROR_VIEW, 0, 0, maxX-1, maxY-1); err != nil {
 			if err != gocui.ErrUnknownView {
 				return err
 			}
 			setViewDefaults(v)
-			v.Title = "Error"
+			v.Title = VIEW_TITLES[ERROR_VIEW]
 			g.Cursor = false
 			fmt.Fprintln(v, "Terminal is too small")
 		}
 		return nil
 	}
-	if _, err := g.View("error"); err == nil {
-		g.DeleteView("error")
+	if _, err := g.View(ERROR_VIEW); err == nil {
+		g.DeleteView(ERROR_VIEW)
 		g.Cursor = true
 		a.setView(g)
 	}
 	splitX := int(0.3 * float32(maxX))
 	splitY := int(0.25 * float32(maxY-3))
-	if v, err := g.SetView("url", 0, 0, maxX-1, 3); err != nil {
+	if v, err := g.SetView(URL_VIEW, 0, 0, maxX-1, 3); err != nil {
 		if err != gocui.ErrUnknownView {
 			return err
 		}
 		setViewDefaults(v)
-		v.Title = "URL (F2) - press ctrl+r to send request"
+		v.Title = VIEW_TITLES[URL_VIEW]
 		v.Editable = true
 		v.Overwrite = false
-		v.Editor = &singlelineEditor{&defaultEditor}
+		v.Editor = &singleLineEditor{&defaultEditor}
 		setViewTextAndCursor(v, a.config.General.DefaultURLScheme+"://")
 	}
-	if v, err := g.SetView("get", 0, 3, splitX, splitY+1); err != nil {
+	if v, err := g.SetView(URL_PARAMS_VIEW, 0, 3, splitX, splitY+1); err != nil {
 		if err != gocui.ErrUnknownView {
 			return err
 		}
 		setViewDefaults(v)
 		v.Editable = true
-		v.Title = "URL params (F3)"
+		v.Title = VIEW_TITLES[URL_PARAMS_VIEW]
 		v.Editor = &defaultEditor
 	}
-	if v, err := g.SetView("method", 0, splitY+1, splitX, splitY+3); err != nil {
+	if v, err := g.SetView(REQUEST_METHOD_VIEW, 0, splitY+1, splitX, splitY+3); err != nil {
 		if err != gocui.ErrUnknownView {
 			return err
 		}
 		setViewDefaults(v)
 		v.Editable = true
-		v.Title = "Method (F4)"
-		v.Editor = &singlelineEditor{&defaultEditor}
+		v.Title = VIEW_TITLES[REQUEST_METHOD_VIEW]
+		v.Editor = &singleLineEditor{&defaultEditor}
 
-		setViewTextAndCursor(v, "GET")
+		setViewTextAndCursor(v, DEFAULT_METHOD)
 	}
-	if v, err := g.SetView("data", 0, 3+splitY, splitX, 2*splitY+3); err != nil {
+	if v, err := g.SetView(REQUEST_DATA_VIEW, 0, 3+splitY, splitX, 2*splitY+3); err != nil {
 		if err != gocui.ErrUnknownView {
 			return err
 		}
 		setViewDefaults(v)
 		v.Editable = true
-		v.Title = "Request data (POST/PUT) (F5)"
+		v.Title = VIEW_TITLES[REQUEST_DATA_VIEW]
 		v.Editor = &defaultEditor
 	}
-	if v, err := g.SetView("headers", 0, 3+(splitY*2), splitX, maxY-2); err != nil {
+	if v, err := g.SetView(REQUEST_HEADERS_VIEW, 0, 3+(splitY*2), splitX, maxY-2); err != nil {
 		if err != gocui.ErrUnknownView {
 			return err
 		}
 		setViewDefaults(v)
 		v.Wrap = false
 		v.Editable = true
-		v.Title = "Request headers (F6)"
+		v.Title = VIEW_TITLES[REQUEST_HEADERS_VIEW]
 		v.Editor = &defaultEditor
 	}
-	if v, err := g.SetView("response-headers", splitX, 3, maxX-1, splitY+3); err != nil {
+	if v, err := g.SetView(RESPONSE_HEADERS_VIEW, splitX, 3, maxX-1, splitY+3); err != nil {
 		if err != gocui.ErrUnknownView {
 			return err
 		}
 		setViewDefaults(v)
-		v.Title = "Response headers (F8)"
+		v.Title = VIEW_TITLES[RESPONSE_HEADERS_VIEW]
 		v.Editable = true
 		v.Editor = &ViewEditor{a, g, false, gocui.EditorFunc(func(v *gocui.View, key gocui.Key, ch rune, mod gocui.Modifier) {
 			return
 		})}
 	}
-	if v, err := g.SetView("response-body", splitX, 3+splitY, maxX-1, maxY-2); err != nil {
+	if v, err := g.SetView(RESPONSE_BODY_VIEW, splitX, 3+splitY, maxX-1, maxY-2); err != nil {
 		if err != gocui.ErrUnknownView {
 			return err
 		}
 		setViewDefaults(v)
-		v.Title = "Response body (F9)"
+		v.Title = VIEW_TITLES[RESPONSE_BODY_VIEW]
 		v.Editable = true
 		v.Editor = &ViewEditor{a, g, false, gocui.EditorFunc(func(v *gocui.View, key gocui.Key, ch rune, mod gocui.Modifier) {
 			return
 		})}
 	}
-	if v, err := g.SetView("prompt", -1, maxY-2, 7, maxY); err != nil {
+	if v, err := g.SetView(PROMPT_VIEW, -1, maxY-2, 7, maxY); err != nil {
 		if err != gocui.ErrUnknownView {
 			return err
 		}
 		v.Frame = false
 		v.Wrap = true
-		setViewTextAndCursor(v, "search> ")
+		setViewTextAndCursor(v, VIEW_TITLES[SEARCH_VIEW])
 	}
-	if v, err := g.SetView("search", 7, maxY-2, maxX, maxY); err != nil {
+	if v, err := g.SetView(SEARCH_VIEW, 7, maxY-2, maxX, maxY); err != nil {
 		if err != gocui.ErrUnknownView {
 			return err
 		}
 		v.Frame = false
 		v.Editable = true
-		v.Editor = &singlelineEditor{&SearchEditor{&defaultEditor}}
+		v.Editor = &singleLineEditor{&SearchEditor{&defaultEditor}}
 		v.Wrap = true
 	}
 	return nil
@@ -318,44 +362,44 @@ func popup(g *gocui.Gui, msg string) {
 	var popup *gocui.View
 	var err error
 	maxX, maxY := g.Size()
-	if popup, err = g.SetView("popup", maxX/2-len(msg)/2-1, maxY/2-1, maxX/2+len(msg)/2+1, maxY/2+1); err != nil {
+	if popup, err = g.SetView(POPUP_VIEW, maxX/2-len(msg)/2-1, maxY/2-1, maxX/2+len(msg)/2+1, maxY/2+1); err != nil {
 		if err != gocui.ErrUnknownView {
 			return
 		}
 		setViewDefaults(popup)
-		popup.Title = "Info"
+		popup.Title = VIEW_TITLES[POPUP_VIEW]
 		setViewTextAndCursor(popup, msg)
-		g.SetViewOnTop("popup")
+		g.SetViewOnTop(POPUP_VIEW)
 	}
 }
 
 func (a *App) SubmitRequest(g *gocui.Gui, _ *gocui.View) error {
-	vrb, _ := g.View("response-body")
+	vrb, _ := g.View(RESPONSE_BODY_VIEW)
 	vrb.Clear()
-	vrh, _ := g.View("response-headers")
+	vrh, _ := g.View(RESPONSE_HEADERS_VIEW)
 	vrh.Clear()
 	popup(g, "Sending request..")
 
 	var r *Request = &Request{}
 
 	go func(g *gocui.Gui, a *App, r *Request) error {
-		defer g.DeleteView("popup")
+		defer g.DeleteView(POPUP_VIEW)
 		// parse url
-		r.Url = getViewValue(g, "url")
+		r.Url = getViewValue(g, URL_VIEW)
 		u, err := url.Parse(r.Url)
 		if err != nil {
 			g.Execute(func(g *gocui.Gui) error {
-				vrb, _ := g.View("response-body")
+				vrb, _ := g.View(RESPONSE_BODY_VIEW)
 				fmt.Fprintf(vrb, "URL parse error: %v", err)
 				return nil
 			})
 			return nil
 		}
 
-		q, err := url.ParseQuery(strings.Replace(getViewValue(g, "get"), "\n", "&", -1))
+		q, err := url.ParseQuery(strings.Replace(getViewValue(g, URL_PARAMS_VIEW), "\n", "&", -1))
 		if err != nil {
 			g.Execute(func(g *gocui.Gui) error {
-				vrb, _ := g.View("response-body")
+				vrb, _ := g.View(RESPONSE_BODY_VIEW)
 				fmt.Fprintf(vrb, "Invalid GET parameters: %v", err)
 				return nil
 			})
@@ -369,12 +413,12 @@ func (a *App) SubmitRequest(g *gocui.Gui, _ *gocui.View) error {
 		r.GetParams = u.RawQuery
 
 		// parse method
-		r.Method = getViewValue(g, "method")
+		r.Method = getViewValue(g, REQUEST_METHOD_VIEW)
 
 		// parse POST/PUT data
 		data := bytes.NewBufferString("")
-		r.Data = strings.Replace(getViewValue(g, "data"), "\n", "&", -1)
-		if r.Method == "POST" || r.Method == "PUT" {
+		r.Data = strings.Replace(getViewValue(g, REQUEST_DATA_VIEW), "\n", "&", -1)
+		if r.Method == http.MethodPost || r.Method == http.MethodPut {
 			data.WriteString(r.Data)
 		}
 
@@ -382,7 +426,7 @@ func (a *App) SubmitRequest(g *gocui.Gui, _ *gocui.View) error {
 		req, err := http.NewRequest(r.Method, u.String(), data)
 		if err != nil {
 			g.Execute(func(g *gocui.Gui) error {
-				vrb, _ := g.View("response-body")
+				vrb, _ := g.View(RESPONSE_BODY_VIEW)
 				fmt.Fprintf(vrb, "Request error: %v", err)
 				return nil
 			})
@@ -391,14 +435,14 @@ func (a *App) SubmitRequest(g *gocui.Gui, _ *gocui.View) error {
 
 		// set headers
 		req.Header.Set("User-Agent", "")
-		r.Headers = getViewValue(g, "headers")
+		r.Headers = getViewValue(g, REQUEST_HEADERS_VIEW)
 		headers := strings.Split(r.Headers, "\n")
 		for _, header := range headers {
 			if header != "" {
 				header_parts := strings.SplitN(header, ": ", 2)
 				if len(header_parts) != 2 {
 					g.Execute(func(g *gocui.Gui) error {
-						vrb, _ := g.View("response-body")
+						vrb, _ := g.View(RESPONSE_BODY_VIEW)
 						fmt.Fprintf(vrb, "Invalid header: %v", header)
 						return nil
 					})
@@ -412,7 +456,7 @@ func (a *App) SubmitRequest(g *gocui.Gui, _ *gocui.View) error {
 		response, err := CLIENT.Do(req)
 		if err != nil {
 			g.Execute(func(g *gocui.Gui) error {
-				vrb, _ := g.View("response-body")
+				vrb, _ := g.View(RESPONSE_BODY_VIEW)
 				fmt.Fprintf(vrb, "Response error: %v", err)
 				return nil
 			})
@@ -429,7 +473,7 @@ func (a *App) SubmitRequest(g *gocui.Gui, _ *gocui.View) error {
 				response.Body = reader
 			} else {
 				g.Execute(func(g *gocui.Gui) error {
-					vrb, _ := g.View("response-body")
+					vrb, _ := g.View(RESPONSE_BODY_VIEW)
 					fmt.Fprintf(vrb, "Cannot uncompress response: %v", err)
 					return nil
 				})
@@ -448,7 +492,7 @@ func (a *App) SubmitRequest(g *gocui.Gui, _ *gocui.View) error {
 
 		// render response
 		g.Execute(func(g *gocui.Gui) error {
-			vrh, _ := g.View("response-headers")
+			vrh, _ := g.View(RESPONSE_HEADERS_VIEW)
 
 			a.PrintBody(g)
 
@@ -493,7 +537,7 @@ func (a *App) PrintBody(g *gocui.Gui) {
 		if req.RawResponseBody == nil {
 			return nil
 		}
-		vrb, _ := g.View("response-body")
+		vrb, _ := g.View(RESPONSE_BODY_VIEW)
 		vrb.Clear()
 
 		responseBody := req.RawResponseBody
@@ -508,9 +552,9 @@ func (a *App) PrintBody(g *gocui.Gui) {
 		}
 
 		is_binary := strings.Index(req.ContentType, "text") == -1 && strings.Index(req.ContentType, "application") == -1
-		search_text := getViewValue(g, "search")
+		search_text := getViewValue(g, SEARCH_VIEW)
 		if search_text == "" || is_binary {
-			vrb.Title = "Response body (F9)"
+			vrb.Title = RESPONSE_BODY_VIEW
 			if is_binary {
 				vrb.Title += " [binary content]"
 				fmt.Fprint(vrb, hex.Dump(req.RawResponseBody))
@@ -543,15 +587,15 @@ func (a *App) PrintBody(g *gocui.Gui) {
 }
 
 func (a *App) SetKeys(g *gocui.Gui) {
-	// global keybindings
+	// global key bindings
 	g.SetManagerFunc(a.Layout)
 
-	g.SetKeybinding("", gocui.KeyCtrlC, gocui.ModNone, quit)
+	g.SetKeybinding(ALL_VIEWS, gocui.KeyCtrlC, gocui.ModNone, quit)
 
-	g.SetKeybinding("", gocui.KeyTab, gocui.ModNone, a.NextView)
-	g.SetKeybinding("", gocui.KeyCtrlJ, gocui.ModNone, a.NextView)
-	g.SetKeybinding("", gocui.KeyCtrlK, gocui.ModNone, a.PrevView)
-	g.SetKeybinding("method", gocui.KeyEnter, gocui.ModNone, a.ToggleMethodlist)
+	g.SetKeybinding(ALL_VIEWS, gocui.KeyTab, gocui.ModNone, a.NextView)
+	g.SetKeybinding(ALL_VIEWS, gocui.KeyCtrlJ, gocui.ModNone, a.NextView)
+	g.SetKeybinding(ALL_VIEWS, gocui.KeyCtrlK, gocui.ModNone, a.PrevView)
+	g.SetKeybinding(REQUEST_METHOD_VIEW, gocui.KeyEnter, gocui.ModNone, a.ToggleMethodList)
 
 	// Cycle for each SHORTCUTS
 	for key, view := range SHORTCUTS {
@@ -560,21 +604,21 @@ func (a *App) SetKeys(g *gocui.Gui) {
 				return a.setViewByName(g, name)
 			}
 		}
-		g.SetKeybinding("", key, gocui.ModNone, handler(view))
+		g.SetKeybinding(ALL_VIEWS, key, gocui.ModNone, handler(view))
 	}
 
-	if runtime.GOOS != "windows" {
-		g.SetKeybinding("", gocui.KeyCtrlH, gocui.ModNone, a.ToggleHistory)
+	if runtime.GOOS != WINDOWS_OS {
+		g.SetKeybinding(ALL_VIEWS, gocui.KeyCtrlH, gocui.ModNone, a.ToggleHistory)
 	}
-	g.SetKeybinding("", 'h', gocui.ModAlt, a.ToggleHistory)
+	g.SetKeybinding(ALL_VIEWS, 'h', gocui.ModAlt, a.ToggleHistory)
 
-	g.SetKeybinding("", gocui.KeyCtrlS, gocui.ModNone, a.OpenSaveDialog)
+	g.SetKeybinding(ALL_VIEWS, gocui.KeyCtrlS, gocui.ModNone, a.OpenSaveDialog)
 
-	g.SetKeybinding("", gocui.KeyCtrlR, gocui.ModNone, a.SubmitRequest)
-	g.SetKeybinding("url", gocui.KeyEnter, gocui.ModNone, a.SubmitRequest)
+	g.SetKeybinding(ALL_VIEWS, gocui.KeyCtrlR, gocui.ModNone, a.SubmitRequest)
+	g.SetKeybinding(URL_VIEW, gocui.KeyEnter, gocui.ModNone, a.SubmitRequest)
 
-	// responses common keybindings
-	for _, view := range []string{"response-body", "response-headers"} {
+	// responses common key bindings
+	for _, view := range []string{RESPONSE_BODY_VIEW, RESPONSE_HEADERS_VIEW} {
 		g.SetKeybinding(view, gocui.KeyArrowUp, gocui.ModNone, scrollViewUp)
 		g.SetKeybinding(view, gocui.KeyArrowDown, gocui.ModNone, scrollViewDown)
 		g.SetKeybinding(view, gocui.KeyPgup, gocui.ModNone, func(_ *gocui.Gui, v *gocui.View) error {
@@ -602,10 +646,10 @@ func (a *App) SetKeys(g *gocui.Gui) {
 		v.SetCursor(cx, cy)
 		return nil
 	}
-	// history keybindings
-	g.SetKeybinding("history", gocui.KeyArrowDown, gocui.ModNone, cursDown)
-	g.SetKeybinding("history", gocui.KeyArrowUp, gocui.ModNone, cursUp)
-	g.SetKeybinding("history", gocui.KeyEnter, gocui.ModNone, func(g *gocui.Gui, v *gocui.View) error {
+	// history key bindings
+	g.SetKeybinding(HISTORY_VIEW, gocui.KeyArrowDown, gocui.ModNone, cursDown)
+	g.SetKeybinding(HISTORY_VIEW, gocui.KeyArrowUp, gocui.ModNone, cursUp)
+	g.SetKeybinding(HISTORY_VIEW, gocui.KeyEnter, gocui.ModNone, func(g *gocui.Gui, v *gocui.View) error {
 		_, cy := v.Cursor()
 		// TODO error
 		if len(a.history) <= cy {
@@ -615,8 +659,8 @@ func (a *App) SetKeys(g *gocui.Gui) {
 		return nil
 	})
 
-	// method keybindings
-	g.SetKeybinding("method", gocui.KeyArrowDown, gocui.ModNone, func(g *gocui.Gui, v *gocui.View) error {
+	// method key bindings
+	g.SetKeybinding(REQUEST_METHOD_VIEW, gocui.KeyArrowDown, gocui.ModNone, func(g *gocui.Gui, v *gocui.View) error {
 		value := strings.TrimSpace(v.Buffer())
 		for i, val := range METHODS {
 			if val == value && i != len(METHODS)-1 {
@@ -626,7 +670,7 @@ func (a *App) SetKeys(g *gocui.Gui) {
 		return nil
 	})
 
-	g.SetKeybinding("method", gocui.KeyArrowUp, gocui.ModNone, func(g *gocui.Gui, v *gocui.View) error {
+	g.SetKeybinding(REQUEST_METHOD_VIEW, gocui.KeyArrowUp, gocui.ModNone, func(g *gocui.Gui, v *gocui.View) error {
 		value := strings.TrimSpace(v.Buffer())
 		for i, val := range METHODS {
 			if val == value && i != 0 {
@@ -635,20 +679,20 @@ func (a *App) SetKeys(g *gocui.Gui) {
 		}
 		return nil
 	})
-	g.SetKeybinding("method-list", gocui.KeyArrowDown, gocui.ModNone, cursDown)
-	g.SetKeybinding("method-list", gocui.KeyArrowUp, gocui.ModNone, cursUp)
-	g.SetKeybinding("method-list", gocui.KeyEnter, gocui.ModNone, func(g *gocui.Gui, v *gocui.View) error {
+	g.SetKeybinding(METHOD_LIST_VIEW, gocui.KeyArrowDown, gocui.ModNone, cursDown)
+	g.SetKeybinding(METHOD_LIST_VIEW, gocui.KeyArrowUp, gocui.ModNone, cursUp)
+	g.SetKeybinding(METHOD_LIST_VIEW, gocui.KeyEnter, gocui.ModNone, func(g *gocui.Gui, v *gocui.View) error {
 		_, cy := v.Cursor()
-		v, _ = g.View("method")
+		v, _ = g.View(REQUEST_METHOD_VIEW)
 		setViewTextAndCursor(v, METHODS[cy])
-		a.closePopup(g, "method-list")
+		a.closePopup(g, METHOD_LIST_VIEW)
 		return nil
 	})
 
-	g.SetKeybinding("save-dialog", gocui.KeyEnter, gocui.ModNone, func(g *gocui.Gui, v *gocui.View) error {
-		defer a.closePopup(g, "save-dialog")
+	g.SetKeybinding(SAVE_DIALOG_VIEW, gocui.KeyEnter, gocui.ModNone, func(g *gocui.Gui, v *gocui.View) error {
+		defer a.closePopup(g, SAVE_DIALOG_VIEW)
 
-		saveLocation := getViewValue(g, "save-dialog")
+		saveLocation := getViewValue(g, SAVE_DIALOG_VIEW)
 
 		if len(a.history) == 0 {
 			return nil
@@ -680,22 +724,22 @@ func (a *App) SetKeys(g *gocui.Gui) {
 			saveResWidth = maxX
 		}
 
-		saveResultPopup, err := a.CreatePopupView("save-result", saveResWidth, saveResHeight, g)
+		saveResultPopup, err := a.CreatePopupView(SAVE_RESULT_VIEW, saveResWidth, saveResHeight, g)
 		saveResultPopup.Title = popupTitle
 		setViewTextAndCursor(saveResultPopup, saveResult)
-		g.SetViewOnTop("save-result")
-		g.SetCurrentView("save-result")
+		g.SetViewOnTop(SAVE_RESULT_VIEW)
+		g.SetCurrentView(SAVE_RESULT_VIEW)
 
 		return err
 	})
 
-	g.SetKeybinding("save-dialog", gocui.KeyCtrlQ, gocui.ModNone, func(g *gocui.Gui, v *gocui.View) error {
-		a.closePopup(g, "save-dialog")
+	g.SetKeybinding(SAVE_DIALOG_VIEW, gocui.KeyCtrlQ, gocui.ModNone, func(g *gocui.Gui, v *gocui.View) error {
+		a.closePopup(g, SAVE_DIALOG_VIEW)
 		return nil
 	})
 
-	g.SetKeybinding("save-result", gocui.KeyEnter, gocui.ModNone, func(g *gocui.Gui, v *gocui.View) error {
-		a.closePopup(g, "save-result")
+	g.SetKeybinding(SAVE_RESULT_VIEW, gocui.KeyEnter, gocui.ModNone, func(g *gocui.Gui, v *gocui.View) error {
+		a.closePopup(g, SAVE_RESULT_VIEW)
 		return nil
 	})
 }
@@ -738,17 +782,17 @@ func (a *App) CreatePopupView(name string, width, height int, g *gocui.Gui) (v *
 
 func (a *App) ToggleHistory(g *gocui.Gui, _ *gocui.View) (err error) {
 	// Destroy if present
-	if a.currentPopup == "history" {
-		a.closePopup(g, "history")
+	if a.currentPopup == HISTORY_VIEW {
+		a.closePopup(g, HISTORY_VIEW)
 		return
 	}
 
-	history, err := a.CreatePopupView("history", 100, len(a.history), g)
+	history, err := a.CreatePopupView(HISTORY_VIEW, 100, len(a.history), g)
 	if err != nil {
 		return
 	}
 
-	history.Title = "History"
+	history.Title = VIEW_TITLES[HISTORY_VIEW]
 
 	if len(a.history) == 0 {
 		setViewTextAndCursor(history, "[!] No items in history")
@@ -767,26 +811,26 @@ func (a *App) ToggleHistory(g *gocui.Gui, _ *gocui.View) (err error) {
 		}
 		fmt.Fprintln(history, req_str)
 	}
-	g.SetViewOnTop("history")
-	g.SetCurrentView("history")
+	g.SetViewOnTop(HISTORY_VIEW)
+	g.SetCurrentView(HISTORY_VIEW)
 	history.SetCursor(0, a.historyIndex)
 	return
 }
 
-func (a *App) ToggleMethodlist(g *gocui.Gui, _ *gocui.View) (err error) {
+func (a *App) ToggleMethodList(g *gocui.Gui, _ *gocui.View) (err error) {
 	// Destroy if present
-	if a.currentPopup == "method-list" {
-		a.closePopup(g, "method-list")
+	if a.currentPopup == METHOD_LIST_VIEW {
+		a.closePopup(g, METHOD_LIST_VIEW)
 		return
 	}
 
-	method, err := a.CreatePopupView("method-list", 50, len(METHODS), g)
+	method, err := a.CreatePopupView(METHOD_LIST_VIEW, 50, len(METHODS), g)
 	if err != nil {
 		return
 	}
-	method.Title = "Methods"
+	method.Title = VIEW_TITLES[METHOD_LIST_VIEW]
 
-	cur := getViewValue(g, "method")
+	cur := getViewValue(g, REQUEST_METHOD_VIEW)
 
 	for i, r := range METHODS {
 		fmt.Fprintln(method, r)
@@ -794,20 +838,20 @@ func (a *App) ToggleMethodlist(g *gocui.Gui, _ *gocui.View) (err error) {
 			method.SetCursor(0, i)
 		}
 	}
-	g.SetViewOnTop("method-list")
-	g.SetCurrentView("method-list")
+	g.SetViewOnTop(METHOD_LIST_VIEW)
+	g.SetCurrentView(METHOD_LIST_VIEW)
 	return
 }
 
 func (a *App) OpenSaveDialog(g *gocui.Gui, _ *gocui.View) (err error) {
-	dialog, err := a.CreatePopupView("save-dialog", 60, 1, g)
+	dialog, err := a.CreatePopupView(SAVE_DIALOG_VIEW, 60, 1, g)
 	if err != nil {
 		return
 	}
 
 	g.Cursor = true
 
-	dialog.Title = "Save Response (enter to submit, ctrl+q to cancel)"
+	dialog.Title = VIEW_TITLES[SAVE_DIALOG_VIEW]
 	dialog.Editable = true
 	dialog.Wrap = false
 
@@ -819,8 +863,8 @@ func (a *App) OpenSaveDialog(g *gocui.Gui, _ *gocui.View) (err error) {
 
 	setViewTextAndCursor(dialog, currentDir)
 
-	g.SetViewOnTop("save-dialog")
-	g.SetCurrentView("save-dialog")
+	g.SetViewOnTop(SAVE_DIALOG_VIEW)
+	g.SetCurrentView(SAVE_DIALOG_VIEW)
 	dialog.SetCursor(0, len(currentDir))
 	return
 }
@@ -829,26 +873,26 @@ func (a *App) restoreRequest(g *gocui.Gui, idx int) {
 	if idx < 0 || idx >= len(a.history) {
 		return
 	}
-	a.closePopup(g, "history")
+	a.closePopup(g, HISTORY_VIEW)
 	a.historyIndex = idx
 	r := a.history[idx]
 
-	v, _ := g.View("url")
+	v, _ := g.View(URL_VIEW)
 	setViewTextAndCursor(v, r.Url)
 
-	v, _ = g.View("method")
+	v, _ = g.View(REQUEST_METHOD_VIEW)
 	setViewTextAndCursor(v, r.Method)
 
-	v, _ = g.View("get")
+	v, _ = g.View(URL_PARAMS_VIEW)
 	setViewTextAndCursor(v, r.GetParams)
 
-	v, _ = g.View("data")
+	v, _ = g.View(REQUEST_DATA_VIEW)
 	setViewTextAndCursor(v, r.Data)
 
-	v, _ = g.View("headers")
+	v, _ = g.View(REQUEST_HEADERS_VIEW)
 	setViewTextAndCursor(v, r.Headers)
 
-	v, _ = g.View("response-headers")
+	v, _ = g.View(RESPONSE_HEADERS_VIEW)
 	setViewTextAndCursor(v, r.ResponseHeaders)
 
 	a.PrintBody(g)
@@ -880,12 +924,12 @@ func (a *App) LoadConfig(configPath string) error {
 func (a *App) ParseArgs(g *gocui.Gui, args []string) error {
 	a.Layout(g)
 	g.SetCurrentView(VIEWS[a.viewIndex])
-	vheader, err := g.View("headers")
+	vheader, err := g.View(REQUEST_HEADERS_VIEW)
 	if err != nil {
 		return errors.New("Too small screen")
 	}
 	vheader.Clear()
-	vget, _ := g.View("get")
+	vget, _ := g.View(URL_PARAMS_VIEW)
 	vget.Clear()
 	add_content_type := false
 	arg_index := 1
@@ -905,14 +949,14 @@ func (a *App) ParseArgs(g *gocui.Gui, args []string) error {
 				return errors.New("No POST/PUT value specified")
 			}
 
-			vmethod, _ := g.View("method")
-			setViewTextAndCursor(vmethod, "POST")
+			vmethod, _ := g.View(REQUEST_METHOD_VIEW)
+			setViewTextAndCursor(vmethod, http.MethodPost)
 
 			arg_index += 1
 			add_content_type = true
 
 			data, _ := url.QueryUnescape(args[arg_index])
-			vdata, _ := g.View("data")
+			vdata, _ := g.View(REQUEST_DATA_VIEW)
 			setViewTextAndCursor(vdata, data)
 		case "-X", "--request":
 			if arg_index == args_len-1 {
@@ -920,10 +964,10 @@ func (a *App) ParseArgs(g *gocui.Gui, args []string) error {
 			}
 			arg_index++
 			method := args[arg_index]
-			if method == "POST" || method == "PUT" {
+			if method == http.MethodPost || method == http.MethodPut {
 				add_content_type = true
 			}
-			vmethod, _ := g.View("method")
+			vmethod, _ := g.View(REQUEST_METHOD_VIEW)
 			setViewTextAndCursor(vmethod, method)
 		case "-t", "--timeout":
 			if arg_index == args_len-1 {
@@ -936,8 +980,8 @@ func (a *App) ParseArgs(g *gocui.Gui, args []string) error {
 			}
 			a.config.General.Timeout = config.Duration{time.Duration(timeout) * time.Millisecond}
 		case "--compressed":
-			vh, _ := g.View("headers")
-			if strings.Index(getViewValue(g, "headers"), "Accept-Encoding") == -1 {
+			vh, _ := g.View(REQUEST_HEADERS_VIEW)
+			if strings.Index(getViewValue(g, REQUEST_HEADERS_VIEW), "Accept-Encoding") == -1 {
 				fmt.Fprintln(vh, "Accept-Encoding: gzip, deflate")
 			}
 		case "--insecure":
@@ -954,7 +998,7 @@ func (a *App) ParseArgs(g *gocui.Gui, args []string) error {
 			if parsed_url.Path == "" {
 				parsed_url.Path = "/"
 			}
-			vurl, _ := g.View("url")
+			vurl, _ := g.View(URL_VIEW)
 			vurl.Clear()
 			for k, v := range parsed_url.Query() {
 				fmt.Fprintf(vget, "%v=%v\n", k, strings.Join(v, ""))
@@ -964,7 +1008,7 @@ func (a *App) ParseArgs(g *gocui.Gui, args []string) error {
 		}
 		arg_index += 1
 	}
-	if add_content_type && strings.Index(getViewValue(g, "headers"), "Content-Type") == -1 {
+	if add_content_type && strings.Index(getViewValue(g, REQUEST_HEADERS_VIEW), "Content-Type") == -1 {
 		setViewTextAndCursor(vheader, "Content-Type: application/x-www-form-urlencoded")
 	}
 	return nil
@@ -1073,8 +1117,8 @@ func main() {
 	if err != nil {
 		log.Panicln(err)
 	}
-	if runtime.GOOS == "windows" && runewidth.IsEastAsian() {
-		g.ASCII = true
+	if runtime.GOOS == WINDOWS_OS && runewidth.IsEastAsian() {
+		g.Ascii = true
 	}
 
 	app := &App{history: make([]*Request, 0, 31)}
