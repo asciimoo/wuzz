@@ -38,6 +38,47 @@ type GeneralOptions struct {
 
 var defaultTimeoutDuration, _ = time.ParseDuration("1m")
 
+var DefaultKeys = map[string]map[string]string{
+	"global": map[string]string{
+		"CtrlR": "submit",
+		"CtrlC": "quit",
+		"CtrlS": "save",
+		"Tab":   "nextView",
+		"CtrlJ": "nextView",
+		"CtrlK": "prevView",
+		"AltH":  "history",
+		"F2":    "focus url",
+		"F3":    "focus get",
+		"F4":    "focus method",
+		"F5":    "focus data",
+		"F6":    "focus headers",
+		"F7":    "focus search",
+		"F8":    "focus response-headers",
+		"F9":    "focus response-body",
+	},
+	"url": map[string]string{
+		"Enter": "submit",
+	},
+	"response-headers": map[string]string{
+		"ArrowUp":   "scrollUp",
+		"ArrowDown": "scrollDown",
+		"PageUp":    "pageUp",
+		"PageDown":  "pageDown",
+	},
+	"response-body": map[string]string{
+		"ArrowUp":   "scrollUp",
+		"ArrowDown": "scrollDown",
+		"PageUp":    "pageUp",
+		"PageDown":  "pageDown",
+	},
+	"help": map[string]string{
+		"ArrowUp":   "scrollUp",
+		"ArrowDown": "scrollDown",
+		"PageUp":    "pageUp",
+		"PageDown":  "pageDown",
+	},
+}
+
 var DefaultConfig = Config{
 	General: GeneralOptions{
 		Timeout: Duration{
@@ -60,6 +101,24 @@ func LoadConfig(configFile string) (*Config, error) {
 	conf := DefaultConfig
 	if _, err := toml.DecodeFile(configFile, &conf); err != nil {
 		return nil, err
+	}
+
+	if conf.Keys == nil {
+		conf.Keys = DefaultKeys
+	} else {
+		// copy default keys
+		for keyCategory, keys := range DefaultKeys {
+			confKeys, found := conf.Keys[keyCategory]
+			if found {
+				for key, action := range keys {
+					if _, found := confKeys[key]; !found {
+						conf.Keys[keyCategory][key] = action
+					}
+				}
+			} else {
+				conf.Keys[keyCategory] = keys
+			}
+		}
 	}
 
 	return &conf, nil
