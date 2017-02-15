@@ -32,7 +32,7 @@ const TIMEOUT_DURATION = 5 // in seconds
 const WINDOWS_OS = "windows"
 
 const (
-	ALL_VIEWS             = ""
+	ALL_VIEWS = ""
 
 	URL_VIEW              = "url"
 	URL_PARAMS_VIEW       = "get"
@@ -43,13 +43,13 @@ const (
 	RESPONSE_HEADERS_VIEW = "response-headers"
 	RESPONSE_BODY_VIEW    = "response-body"
 
-	PROMPT_VIEW           = "prompt"
-	POPUP_VIEW            = "popup_view"
-	ERROR_VIEW            = "error_view"
-	HISTORY_VIEW          = "history"
-	SAVE_DIALOG_VIEW      = "save-dialog"
-	SAVE_RESULT_VIEW      = "save-result"
-	METHOD_LIST_VIEW      = "method-list"
+	PROMPT_VIEW      = "prompt"
+	POPUP_VIEW       = "popup_view"
+	ERROR_VIEW       = "error_view"
+	HISTORY_VIEW     = "history"
+	SAVE_DIALOG_VIEW = "save-dialog"
+	SAVE_RESULT_VIEW = "save-result"
+	METHOD_LIST_VIEW = "method-list"
 )
 
 var VIEW_TITLES = map[string]string{
@@ -62,11 +62,11 @@ var VIEW_TITLES = map[string]string{
 	RESPONSE_HEADERS_VIEW: "Response headers (F8)",
 	RESPONSE_BODY_VIEW:    "Response body (F9)",
 
-	POPUP_VIEW:	       "Info",
-	ERROR_VIEW:            "Error",
-	HISTORY_VIEW:          "History",
-	SAVE_DIALOG_VIEW:      "Save Response (enter to submit, ctrl+q to cancel)",
-	METHOD_LIST_VIEW:      "Methods",
+	POPUP_VIEW:       "Info",
+	ERROR_VIEW:       "Error",
+	HISTORY_VIEW:     "History",
+	SAVE_DIALOG_VIEW: "Save Response (enter to submit, ctrl+q to cancel)",
+	METHOD_LIST_VIEW: "Methods",
 }
 
 var METHODS []string = []string{
@@ -80,6 +80,7 @@ var METHODS []string = []string{
 	http.MethodConnect,
 	http.MethodHead,
 }
+
 const DEFAULT_METHOD = http.MethodGet
 
 var SHORTCUTS map[gocui.Key]string = map[gocui.Key]string{
@@ -115,7 +116,7 @@ var VIEWS []string = []string{
 var defaultEditor ViewEditor
 
 const (
-	MIN_WIDTH = 60
+	MIN_WIDTH  = 60
 	MIN_HEIGHT = 20
 )
 
