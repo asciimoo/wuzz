@@ -22,6 +22,7 @@ import (
 	"github.com/asciimoo/wuzz/config"
 
 	"crypto/tls"
+
 	"github.com/jroimartin/gocui"
 	"github.com/mattn/go-runewidth"
 	"github.com/nwidger/jsoncolor"
@@ -58,7 +59,7 @@ var VIEW_TITLES = map[string]string{
 	URL_VIEW:              "URL - press F1 for help",
 	URL_PARAMS_VIEW:       "URL params",
 	REQUEST_METHOD_VIEW:   "Method",
-	REQUEST_DATA_VIEW:     "Request data (POST/PUT)",
+	REQUEST_DATA_VIEW:     "Request data (POST/PUT/PATCH)",
 	REQUEST_HEADERS_VIEW:  "Request headers",
 	SEARCH_VIEW:           "search> ",
 	RESPONSE_HEADERS_VIEW: "Response headers",
@@ -496,29 +497,11 @@ func (a *App) SubmitRequest(g *gocui.Gui, _ *gocui.View) error {
 		// parse method
 		r.Method = getViewValue(g, REQUEST_METHOD_VIEW)
 
-		// parse POST/PUT data
-		data := bytes.NewBufferString("")
-		r.Data = strings.Replace(getViewValue(g, REQUEST_DATA_VIEW), "\n", "&", -1)
-		if r.Method == http.MethodPost || r.Method == http.MethodPut {
-			data.WriteString(r.Data)
-		}
-
-		// create request
-		req, err := http.NewRequest(r.Method, u.String(), data)
-		if err != nil {
-			g.Execute(func(g *gocui.Gui) error {
-				vrb, _ := g.View(RESPONSE_BODY_VIEW)
-				fmt.Fprintf(vrb, "Request error: %v", err)
-				return nil
-			})
-			return nil
-		}
-
 		// set headers
-		req.Header.Set("User-Agent", "")
+		headers := http.Header{}
+		headers.Set("User-Agent", "")
 		r.Headers = getViewValue(g, REQUEST_HEADERS_VIEW)
-		headers := strings.Split(r.Headers, "\n")
-		for _, header := range headers {
+		for _, header := range strings.Split(r.Headers, "\n") {
 			if header != "" {
 				header_parts := strings.SplitN(header, ": ", 2)
 				if len(header_parts) != 2 {
@@ -529,9 +512,32 @@ func (a *App) SubmitRequest(g *gocui.Gui, _ *gocui.View) error {
 					})
 					return nil
 				}
-				req.Header.Set(header_parts[0], header_parts[1])
+				headers.Set(header_parts[0], header_parts[1])
 			}
 		}
+
+		var body io.Reader
+
+		// parse POST/PUT/PATCH data
+		if r.Method == http.MethodPost || r.Method == http.MethodPut || r.Method == http.MethodPatch {
+			bodyStr := getViewValue(g, REQUEST_DATA_VIEW)
+			if headers.Get("Content-Type") == "application/x-www-form-urlencoded" {
+				bodyStr = strings.Replace(bodyStr, "\n", "&", -1)
+			}
+			body = bytes.NewBufferString(bodyStr)
+		}
+
+		// create request
+		req, err := http.NewRequest(r.Method, u.String(), body)
+		if err != nil {
+			g.Execute(func(g *gocui.Gui) error {
+				vrb, _ := g.View(RESPONSE_BODY_VIEW)
+				fmt.Fprintf(vrb, "Request error: %v", err)
+				return nil
+			})
+			return nil
+		}
+		req.Header = headers
 
 		// do request
 		response, err := CLIENT.Do(req)
@@ -1075,6 +1081,9 @@ func (a *App) ParseArgs(g *gocui.Gui, args []string) error {
 	vget, _ := g.View(URL_PARAMS_VIEW)
 	vget.Clear()
 	add_content_type := false
+	set_data := false
+	set_method := false
+	set_binary_data := false
 	arg_index := 1
 	args_len := len(args)
 	for arg_index < args_len {
@@ -1087,18 +1096,20 @@ func (a *App) ParseArgs(g *gocui.Gui, args []string) error {
 			arg_index += 1
 			header := args[arg_index]
 			fmt.Fprintf(vheader, "%v\n", header)
-		case "-d", "--data":
+		case "-d", "--data", "--data-binary":
 			if arg_index == args_len-1 {
-				return errors.New("No POST/PUT value specified")
+				return errors.New("No POST/PUT/PATCH value specified")
 			}
 
-			vmethod, _ := g.View(REQUEST_METHOD_VIEW)
-			setViewTextAndCursor(vmethod, http.MethodPost)
-
 			arg_index += 1
-			add_content_type = true
+			set_data = true
+			set_binary_data = arg == "--data-binary"
 
-			data, _ := url.QueryUnescape(args[arg_index])
+			data := args[arg_index]
+			if !set_binary_data {
+				data, _ = url.QueryUnescape(data)
+				add_content_type = true
+			}
 			vdata, _ := g.View(REQUEST_DATA_VIEW)
 			setViewTextAndCursor(vdata, data)
 		case "-X", "--request":
@@ -1106,6 +1117,7 @@ func (a *App) ParseArgs(g *gocui.Gui, args []string) error {
 				return errors.New("No HTTP method specified")
 			}
 			arg_index++
+			set_method = true
 			method := args[arg_index]
 			if method == http.MethodPost || method == http.MethodPut {
 				add_content_type = true
@@ -1151,7 +1163,13 @@ func (a *App) ParseArgs(g *gocui.Gui, args []string) error {
 		}
 		arg_index += 1
 	}
-	if add_content_type && strings.Index(getViewValue(g, REQUEST_HEADERS_VIEW), "Content-Type") == -1 {
+
+	if set_data && !set_method {
+		vmethod, _ := g.View(REQUEST_METHOD_VIEW)
+		setViewTextAndCursor(vmethod, http.MethodPost)
+	}
+
+	if !set_binary_data && add_content_type && strings.Index(getViewValue(g, REQUEST_HEADERS_VIEW), "Content-Type") == -1 {
 		setViewTextAndCursor(vheader, "Content-Type: application/x-www-form-urlencoded")
 	}
 	return nil
@@ -1194,7 +1212,7 @@ func setViewTextAndCursor(v *gocui.View, s string) {
 func help() {
 	fmt.Println(`wuzz - Interactive cli tool for HTTP inspection
 
-Usage: wuzz [-H|--header HEADER]... [-d|--data POST_DATA] [-X|--request METHOD] [-t|--timeout MSECS] [URL]
+Usage: wuzz [-H|--header HEADER]... [-d|--data|--data-binary DATA] [-X|--request METHOD] [-t|--timeout MSECS] [URL]
 
 Other command line options:
   -c, --config PATH   Specify custom configuration file
