@@ -1133,7 +1133,7 @@ func setViewTextAndCursor(v *gocui.View, s string) {
 func help() {
 	fmt.Println(`wuzz - Interactive cli tool for HTTP inspection
 
-Usage: wuzz [-H|--header HEADER]... [-d|--data POST_DATA] [-X|--request METHOD] [-t|--timeout MSECS] [URL]
+Usage: wuzz [-H|--header HEADER]... [-d|--data|--data-binary DATA] [-X|--request METHOD] [-t|--timeout MSECS] [URL]
 
 Other command line options:
   -c, --config PATH   Specify custom configuration file
