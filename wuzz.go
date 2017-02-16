@@ -163,7 +163,7 @@ var VIEW_PROPERTIES = map[string]viewProperties{
 		editor:   &singleLineEditor{&defaultEditor},
 	},
 	REQUEST_DATA_VIEW: {
-		title:    "Request data (POST/PUT)",
+		title:    "Request data (POST/PUT/PATCH)",
 		frame:    true,
 		editable: true,
 		wrap:     true,
