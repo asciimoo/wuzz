@@ -360,7 +360,6 @@ func (a *App) Layout(g *gocui.Gui) error {
 			return err
 		}
 		setViewDefaults(v)
-		v.Wrap = false
 		v.Editable = true
 		v.Title = VIEW_TITLES[REQUEST_HEADERS_VIEW]
 		v.Editor = &defaultEditor
@@ -370,6 +369,7 @@ func (a *App) Layout(g *gocui.Gui) error {
 			return err
 		}
 		setViewDefaults(v)
+		v.Wrap = true
 		v.Title = VIEW_TITLES[RESPONSE_HEADERS_VIEW]
 		v.Editable = true
 		v.Editor = &ViewEditor{a, g, false, gocui.EditorFunc(func(v *gocui.View, key gocui.Key, ch rune, mod gocui.Modifier) {
@@ -381,6 +381,7 @@ func (a *App) Layout(g *gocui.Gui) error {
 			return err
 		}
 		setViewDefaults(v)
+		v.Wrap = true
 		v.Title = VIEW_TITLES[RESPONSE_BODY_VIEW]
 		v.Editable = true
 		v.Editor = &ViewEditor{a, g, false, gocui.EditorFunc(func(v *gocui.View, key gocui.Key, ch rune, mod gocui.Modifier) {
@@ -392,7 +393,6 @@ func (a *App) Layout(g *gocui.Gui) error {
 			return err
 		}
 		v.Frame = false
-		v.Wrap = true
 		setViewTextAndCursor(v, VIEW_TITLES[SEARCH_VIEW])
 	}
 	if v, err := setView(g, maxX, maxY, SEARCH_VIEW); err != nil {
@@ -402,7 +402,6 @@ func (a *App) Layout(g *gocui.Gui) error {
 		v.Frame = false
 		v.Editable = true
 		v.Editor = &singleLineEditor{&SearchEditor{&defaultEditor}}
-		v.Wrap = true
 	}
 	return nil
 }
@@ -1200,7 +1199,7 @@ func getViewValue(g *gocui.Gui, name string) string {
 
 func setViewDefaults(v *gocui.View) {
 	v.Frame = true
-	v.Wrap = true
+	v.Wrap = false
 }
 
 func setViewTextAndCursor(v *gocui.View, s string) {
