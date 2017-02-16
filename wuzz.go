@@ -1030,6 +1030,7 @@ func (a *App) ParseArgs(g *gocui.Gui, args []string) error {
 			data := args[arg_index]
 			if !set_binary_data {
 				data, _ = url.QueryUnescape(data)
+				add_content_type = true
 			}
 			vdata, _ := g.View(REQUEST_DATA_VIEW)
 			setViewTextAndCursor(vdata, data)
