@@ -1158,7 +1158,7 @@ func main() {
 		log.Panicln(err)
 	}
 	if runtime.GOOS == WINDOWS_OS && runewidth.IsEastAsian() {
-		g.Ascii = true
+		g.ASCII = true
 	}
 
 	app := &App{history: make([]*Request, 0, 31)}
