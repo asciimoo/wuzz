@@ -28,7 +28,6 @@ import (
 )
 
 const VERSION = "0.1.0"
-const VERSION = "0.1.1"
 
 const TIMEOUT_DURATION = 5 // in seconds
 const WINDOWS_OS = "windows"
@@ -52,17 +51,18 @@ const (
 	SAVE_DIALOG_VIEW = "save-dialog"
 	SAVE_RESULT_VIEW = "save-result"
 	METHOD_LIST_VIEW = "method-list"
+	HELP_VIEW        = "help"
 )
 
 var VIEW_TITLES = map[string]string{
-	URL_VIEW:              "URL (F2) - press ctrl+r to send request",
-	URL_PARAMS_VIEW:       "URL params (F3)",
-	REQUEST_METHOD_VIEW:   "Method (F4)",
-	REQUEST_DATA_VIEW:     "Request data (POST/PUT) (F5)",
-	REQUEST_HEADERS_VIEW:  "Request headers (F6)",
+	URL_VIEW:              "URL - press F1 for help",
+	URL_PARAMS_VIEW:       "URL params",
+	REQUEST_METHOD_VIEW:   "Method",
+	REQUEST_DATA_VIEW:     "Request data (POST/PUT)",
+	REQUEST_HEADERS_VIEW:  "Request headers",
 	SEARCH_VIEW:           "search> ",
-	RESPONSE_HEADERS_VIEW: "Response headers (F8)",
-	RESPONSE_BODY_VIEW:    "Response body (F9)",
+	RESPONSE_HEADERS_VIEW: "Response headers",
+	RESPONSE_BODY_VIEW:    "Response body",
 
 	POPUP_VIEW:       "Info",
 	ERROR_VIEW:       "Error",
@@ -248,7 +248,6 @@ func (a *App) Layout(g *gocui.Gui) error {
 			return err
 		}
 		setViewDefaults(v)
-		v.Title = "URL - press F1 for help"
 		v.Title = VIEW_TITLES[URL_VIEW]
 		v.Editable = true
 		v.Overwrite = false
@@ -270,7 +269,6 @@ func (a *App) Layout(g *gocui.Gui) error {
 		}
 		setViewDefaults(v)
 		v.Editable = true
-		v.Title = "Method"
 		v.Title = VIEW_TITLES[REQUEST_METHOD_VIEW]
 		v.Editor = &singleLineEditor{&defaultEditor}
 
@@ -282,7 +280,6 @@ func (a *App) Layout(g *gocui.Gui) error {
 		}
 		setViewDefaults(v)
 		v.Editable = true
-		v.Title = "Request data (POST/PUT)"
 		v.Title = VIEW_TITLES[REQUEST_DATA_VIEW]
 		v.Editor = &defaultEditor
 	}
@@ -293,7 +290,6 @@ func (a *App) Layout(g *gocui.Gui) error {
 		setViewDefaults(v)
 		v.Wrap = false
 		v.Editable = true
-		v.Title = "Request headers"
 		v.Title = VIEW_TITLES[REQUEST_HEADERS_VIEW]
 		v.Editor = &defaultEditor
 	}
@@ -302,7 +298,6 @@ func (a *App) Layout(g *gocui.Gui) error {
 			return err
 		}
 		setViewDefaults(v)
-		v.Title = "Response headers"
 		v.Title = VIEW_TITLES[RESPONSE_HEADERS_VIEW]
 		v.Editable = true
 		v.Editor = &ViewEditor{a, g, false, gocui.EditorFunc(func(v *gocui.View, key gocui.Key, ch rune, mod gocui.Modifier) {
@@ -314,7 +309,6 @@ func (a *App) Layout(g *gocui.Gui) error {
 			return err
 		}
 		setViewDefaults(v)
-		v.Title = "Response body"
 		v.Title = VIEW_TITLES[RESPONSE_BODY_VIEW]
 		v.Editable = true
 		v.Editor = &ViewEditor{a, g, false, gocui.EditorFunc(func(v *gocui.View, key gocui.Key, ch rune, mod gocui.Modifier) {
@@ -563,7 +557,6 @@ func (a *App) PrintBody(g *gocui.Gui) {
 		is_binary := strings.Index(req.ContentType, "text") == -1 && strings.Index(req.ContentType, "application") == -1
 		search_text := getViewValue(g, SEARCH_VIEW)
 		if search_text == "" || is_binary {
-			vrb.Title = "Response body"
 			vrb.Title = RESPONSE_BODY_VIEW
 			if is_binary {
 				vrb.Title += " [binary content]"
@@ -676,12 +669,12 @@ func (a *App) SetKeys(g *gocui.Gui) error {
 	}
 
 	g.SetKeybinding("", gocui.KeyF1, gocui.ModNone, func(g *gocui.Gui, v *gocui.View) error {
-		if a.currentPopup == "help" {
-			a.closePopup(g, "help")
+		if a.currentPopup == HELP_VIEW {
+			a.closePopup(g, HELP_VIEW)
 			return nil
 		}
 
-		help, err := a.CreatePopupView("help", 60, 40, g)
+		help, err := a.CreatePopupView(HELP_VIEW, 60, 40, g)
 		if err != nil {
 			return err
 		}
@@ -695,12 +688,12 @@ func (a *App) SetKeys(g *gocui.Gui) error {
 			}
 			a.printViewKeybindings(help, viewName)
 		}
-		g.SetViewOnTop("help")
-		g.SetCurrentView("help")
+		g.SetViewOnTop(HELP_VIEW)
+		g.SetCurrentView(HELP_VIEW)
 		return nil
 	})
 
-	g.SetKeybinding("method", gocui.KeyEnter, gocui.ModNone, a.ToggleMethodlist)
+	g.SetKeybinding(REQUEST_METHOD_VIEW, gocui.KeyEnter, gocui.ModNone, a.ToggleMethodList)
 
 	cursDown := func(g *gocui.Gui, v *gocui.View) error {
 		cx, cy := v.Cursor()
