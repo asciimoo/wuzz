@@ -83,53 +83,53 @@ type viewPosition struct {
 
 var VIEW_POSITIONS = map[string]viewPosition{
 	URL_VIEW: {
-		position{0.0, 0 },
-		position{0.0, 0 },
+		position{0.0, 0},
+		position{0.0, 0},
 		position{1.0, -2},
-		position{0.0, 3 }},
+		position{0.0, 3}},
 	URL_PARAMS_VIEW: {
-		position{0.0, 0 },
-		position{0.0, 3 },
-		position{0.3, 0 },
-		position{0.25, 0 }},
+		position{0.0, 0},
+		position{0.0, 3},
+		position{0.3, 0},
+		position{0.25, 0}},
 	REQUEST_METHOD_VIEW: {
-		position{0.0, 0 },
-		position{0.25, 0 },
-		position{0.3, 0 },
-		position{0.25, 2 }},
+		position{0.0, 0},
+		position{0.25, 0},
+		position{0.3, 0},
+		position{0.25, 2}},
 	REQUEST_DATA_VIEW: {
-		position{0.0, 0 },
-		position{0.25, 2 },
-		position{0.3, 0 },
-		position{0.5, 1 }},
+		position{0.0, 0},
+		position{0.25, 2},
+		position{0.3, 0},
+		position{0.5, 1}},
 	REQUEST_HEADERS_VIEW: {
-		position{0.0, 0 },
-		position{0.5, 1 },
-		position{0.3, 0 },
+		position{0.0, 0},
+		position{0.5, 1},
+		position{0.3, 0},
 		position{1.0, -3}},
 	RESPONSE_HEADERS_VIEW: {
-		position{0.3, 0 },
-		position{0.0, 3 },
+		position{0.3, 0},
+		position{0.0, 3},
 		position{1.0, -2},
-		position{0.25, 2 }},
+		position{0.25, 2}},
 	RESPONSE_BODY_VIEW: {
-		position{0.3, 0 },
-		position{0.25, 2 },
+		position{0.3, 0},
+		position{0.25, 2},
 		position{1.0, -2},
 		position{1.0, -3}},
 	SEARCH_VIEW: {
-		position{0.0, 7 },
+		position{0.0, 7},
 		position{1.0, -3},
 		position{1.0, -1},
 		position{1.0, -1}},
 	ERROR_VIEW: {
-		position{0.0, 0 },
-		position{0.0, 0 },
+		position{0.0, 0},
+		position{0.0, 0},
 		position{1.0, -2},
 		position{1.0, -2}},
 	PROMPT: {
-		position{0.0, -1 },
-		position{1.0, -3 },
+		position{0.0, -1},
+		position{1.0, -3},
 		position{0.0, 8},
 		position{1.0, -1}},
 	POPUP_VIEW: {
@@ -440,7 +440,7 @@ func popup(g *gocui.Gui, msg string) {
 	maxY++
 
 	p := VIEW_POSITIONS[POPUP_VIEW]
-	p.x0.abs = - len(msg)/2 - 1
+	p.x0.abs = -len(msg)/2 - 1
 	p.x1.abs = len(msg)/2 + 1
 	VIEW_POSITIONS[POPUP_VIEW] = p
 	if popup, err = setView(g, maxX, maxY, POPUP_VIEW); err != nil {
