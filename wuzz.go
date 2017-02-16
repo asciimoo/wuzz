@@ -44,7 +44,7 @@ const (
 	RESPONSE_HEADERS_VIEW = "response-headers"
 	RESPONSE_BODY_VIEW    = "response-body"
 
-	PROMPT_VIEW      = "prompt"
+	PROMPT           = "prompt"
 	POPUP_VIEW       = "popup_view"
 	ERROR_VIEW       = "error_view"
 	HISTORY_VIEW     = "history"
@@ -71,6 +71,74 @@ var VIEW_TITLES = map[string]string{
 	METHOD_LIST_VIEW: "Methods",
 }
 
+type position struct {
+	// value = prc * MAX + abs
+	pct float32
+	abs int
+}
+
+type viewPosition struct {
+	x0, y0, x1, y1 position
+}
+
+var VIEW_POSITIONS = map[string]viewPosition{
+	URL_VIEW: {
+		position{0.0, 0},
+		position{0.0, 0},
+		position{1.0, -2},
+		position{0.0, 3}},
+	URL_PARAMS_VIEW: {
+		position{0.0, 0},
+		position{0.0, 3},
+		position{0.3, 0},
+		position{0.25, 0}},
+	REQUEST_METHOD_VIEW: {
+		position{0.0, 0},
+		position{0.25, 0},
+		position{0.3, 0},
+		position{0.25, 2}},
+	REQUEST_DATA_VIEW: {
+		position{0.0, 0},
+		position{0.25, 2},
+		position{0.3, 0},
+		position{0.5, 1}},
+	REQUEST_HEADERS_VIEW: {
+		position{0.0, 0},
+		position{0.5, 1},
+		position{0.3, 0},
+		position{1.0, -3}},
+	RESPONSE_HEADERS_VIEW: {
+		position{0.3, 0},
+		position{0.0, 3},
+		position{1.0, -2},
+		position{0.25, 2}},
+	RESPONSE_BODY_VIEW: {
+		position{0.3, 0},
+		position{0.25, 2},
+		position{1.0, -2},
+		position{1.0, -3}},
+	SEARCH_VIEW: {
+		position{0.0, 7},
+		position{1.0, -3},
+		position{1.0, -1},
+		position{1.0, -1}},
+	ERROR_VIEW: {
+		position{0.0, 0},
+		position{0.0, 0},
+		position{1.0, -2},
+		position{1.0, -2}},
+	PROMPT: {
+		position{0.0, -1},
+		position{1.0, -3},
+		position{0.0, 8},
+		position{1.0, -1}},
+	POPUP_VIEW: {
+		position{0.5, -9999}, // set before usage using len(msg)
+		position{0.5, -1},
+		position{0.5, -9999}, // set before usage using len(msg)
+		position{0.5, 1}},
+}
+
 var METHODS []string = []string{
 	http.MethodGet,
 	http.MethodPost,
@@ -84,18 +152,6 @@ var METHODS []string = []string{
 }
 
 const DEFAULT_METHOD = http.MethodGet
-
-var SHORTCUTS map[gocui.Key]string = map[gocui.Key]string{
-	// gocui.KeyF1 reserved for help popup
-	gocui.KeyF2: URL_VIEW,
-	gocui.KeyF3: URL_PARAMS_VIEW,
-	gocui.KeyF4: REQUEST_METHOD_VIEW,
-	gocui.KeyF5: REQUEST_DATA_VIEW,
-	gocui.KeyF6: REQUEST_HEADERS_VIEW,
-	gocui.KeyF7: SEARCH_VIEW,
-	gocui.KeyF8: RESPONSE_HEADERS_VIEW,
-	gocui.KeyF9: RESPONSE_BODY_VIEW,
-}
 
 var CLIENT *http.Client = &http.Client{
 	Timeout: time.Duration(TIMEOUT_DURATION * time.Second),
@@ -222,10 +278,26 @@ func (e singleLineEditor) Edit(v *gocui.View, key gocui.Key, ch rune, mod gocui.
 
 //
 
+func (p position) getCoordinate(max int) int {
+	return int(p.pct*float32(max)) + p.abs
+}
+
+func setView(g *gocui.Gui, maxX, maxY int, viewName string) (*gocui.View, error) {
+	position := VIEW_POSITIONS[viewName]
+	return g.SetView(viewName,
+		position.x0.getCoordinate(maxX),
+		position.y0.getCoordinate(maxY),
+		position.x1.getCoordinate(maxX),
+		position.y1.getCoordinate(maxY))
+}
+
 func (a *App) Layout(g *gocui.Gui) error {
 	maxX, maxY := g.Size()
-	if maxX < MIN_WIDTH || maxY < MIN_HEIGHT {
-		if v, err := g.SetView(ERROR_VIEW, 0, 0, maxX-1, maxY-1); err != nil {
+	maxX++
+	maxY++
+
+	if maxX-1 < MIN_WIDTH || maxY-1 < MIN_HEIGHT {
+		if v, err := setView(g, maxX, maxY, ERROR_VIEW); err != nil {
 			if err != gocui.ErrUnknownView {
 				return err
 			}
@@ -241,9 +313,8 @@ func (a *App) Layout(g *gocui.Gui) error {
 		g.Cursor = true
 		a.setView(g)
 	}
-	splitX := int(0.3 * float32(maxX))
-	splitY := int(0.25 * float32(maxY-3))
-	if v, err := g.SetView(URL_VIEW, 0, 0, maxX-1, 3); err != nil {
+
+	if v, err := setView(g, maxX, maxY, URL_VIEW); err != nil {
 		if err != gocui.ErrUnknownView {
 			return err
 		}
@@ -254,7 +325,7 @@ func (a *App) Layout(g *gocui.Gui) error {
 		v.Editor = &singleLineEditor{&defaultEditor}
 		setViewTextAndCursor(v, a.config.General.DefaultURLScheme+"://")
 	}
-	if v, err := g.SetView(URL_PARAMS_VIEW, 0, 3, splitX, splitY+1); err != nil {
+	if v, err := setView(g, maxX, maxY, URL_PARAMS_VIEW); err != nil {
 		if err != gocui.ErrUnknownView {
 			return err
 		}
@@ -263,7 +334,7 @@ func (a *App) Layout(g *gocui.Gui) error {
 		v.Title = VIEW_TITLES[URL_PARAMS_VIEW]
 		v.Editor = &defaultEditor
 	}
-	if v, err := g.SetView(REQUEST_METHOD_VIEW, 0, splitY+1, splitX, splitY+3); err != nil {
+	if v, err := setView(g, maxX, maxY, REQUEST_METHOD_VIEW); err != nil {
 		if err != gocui.ErrUnknownView {
 			return err
 		}
@@ -274,7 +345,7 @@ func (a *App) Layout(g *gocui.Gui) error {
 
 		setViewTextAndCursor(v, DEFAULT_METHOD)
 	}
-	if v, err := g.SetView(REQUEST_DATA_VIEW, 0, 3+splitY, splitX, 2*splitY+3); err != nil {
+	if v, err := setView(g, maxX, maxY, REQUEST_DATA_VIEW); err != nil {
 		if err != gocui.ErrUnknownView {
 			return err
 		}
@@ -283,7 +354,7 @@ func (a *App) Layout(g *gocui.Gui) error {
 		v.Title = VIEW_TITLES[REQUEST_DATA_VIEW]
 		v.Editor = &defaultEditor
 	}
-	if v, err := g.SetView(REQUEST_HEADERS_VIEW, 0, 3+(splitY*2), splitX, maxY-2); err != nil {
+	if v, err := setView(g, maxX, maxY, REQUEST_HEADERS_VIEW); err != nil {
 		if err != gocui.ErrUnknownView {
 			return err
 		}
@@ -293,7 +364,7 @@ func (a *App) Layout(g *gocui.Gui) error {
 		v.Title = VIEW_TITLES[REQUEST_HEADERS_VIEW]
 		v.Editor = &defaultEditor
 	}
-	if v, err := g.SetView(RESPONSE_HEADERS_VIEW, splitX, 3, maxX-1, splitY+3); err != nil {
+	if v, err := setView(g, maxX, maxY, RESPONSE_HEADERS_VIEW); err != nil {
 		if err != gocui.ErrUnknownView {
 			return err
 		}
@@ -304,7 +375,7 @@ func (a *App) Layout(g *gocui.Gui) error {
 			return
 		})}
 	}
-	if v, err := g.SetView(RESPONSE_BODY_VIEW, splitX, 3+splitY, maxX-1, maxY-2); err != nil {
+	if v, err := setView(g, maxX, maxY, RESPONSE_BODY_VIEW); err != nil {
 		if err != gocui.ErrUnknownView {
 			return err
 		}
@@ -315,7 +386,7 @@ func (a *App) Layout(g *gocui.Gui) error {
 			return
 		})}
 	}
-	if v, err := g.SetView(PROMPT_VIEW, -1, maxY-2, 7, maxY); err != nil {
+	if v, err := setView(g, maxX, maxY, PROMPT); err != nil {
 		if err != gocui.ErrUnknownView {
 			return err
 		}
@@ -323,7 +394,7 @@ func (a *App) Layout(g *gocui.Gui) error {
 		v.Wrap = true
 		setViewTextAndCursor(v, VIEW_TITLES[SEARCH_VIEW])
 	}
-	if v, err := g.SetView(SEARCH_VIEW, 7, maxY-2, maxX, maxY); err != nil {
+	if v, err := setView(g, maxX, maxY, SEARCH_VIEW); err != nil {
 		if err != gocui.ErrUnknownView {
 			return err
 		}
@@ -365,7 +436,14 @@ func popup(g *gocui.Gui, msg string) {
 	var popup *gocui.View
 	var err error
 	maxX, maxY := g.Size()
-	if popup, err = g.SetView(POPUP_VIEW, maxX/2-len(msg)/2-1, maxY/2-1, maxX/2+len(msg)/2+1, maxY/2+1); err != nil {
+	maxX++
+	maxY++
+
+	p := VIEW_POSITIONS[POPUP_VIEW]
+	p.x0.abs = -len(msg)/2 - 1
+	p.x1.abs = len(msg)/2 + 1
+	VIEW_POSITIONS[POPUP_VIEW] = p
+	if popup, err = setView(g, maxX, maxY, POPUP_VIEW); err != nil {
 		if err != gocui.ErrUnknownView {
 			return
 		}
@@ -659,7 +737,7 @@ func (a *App) SetKeys(g *gocui.Gui) error {
 	// load config keybindings
 	for viewName, keys := range a.config.Keys {
 		if viewName == "global" {
-			viewName = ""
+			viewName = ALL_VIEWS
 		}
 		for keyStr, commandStr := range keys {
 			if err := a.setKey(g, keyStr, commandStr, viewName); err != nil {
@@ -668,7 +746,7 @@ func (a *App) SetKeys(g *gocui.Gui) error {
 		}
 	}
 
-	g.SetKeybinding("", gocui.KeyF1, gocui.ModNone, func(g *gocui.Gui, v *gocui.View) error {
+	g.SetKeybinding(ALL_VIEWS, gocui.KeyF1, gocui.ModNone, func(g *gocui.Gui, v *gocui.View) error {
 		if a.currentPopup == HELP_VIEW {
 			a.closePopup(g, HELP_VIEW)
 			return nil
