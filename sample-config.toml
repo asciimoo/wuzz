@@ -5,3 +5,27 @@ defaultURLScheme = "https"
 formatJSON = true
 preserveScrollPosition = true
 insecure = false
+
+# KEYBINDINGS
+[keys.global]
+CtrlH = "submit"
+CtrlW = "save"
+CtrlN = "nextView"
+CtrlP = "prevView"
+AltEnter = "history"
+
+[keys.search]
+Tab = "focus url"
+
+[keys.url]
+Tab = "focus search"
+
+[keys.response-body]
+j = "scrollDown"
+k = "scrollUp"
+J = "pageDown"
+K = "pageUp"
+
+[keys.response-headers]
+j = "pageDown"
+k = "pageUp"
