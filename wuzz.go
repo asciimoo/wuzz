@@ -392,7 +392,7 @@ func (a *App) Layout(g *gocui.Gui) error {
 		vp.editor = a.getResponseViewEditor(g)
 		VIEW_PROPERTIES[name] = vp
 	}
-  
+
 	for _, name := range []string{
 		URL_VIEW,
 		URL_PARAMS_VIEW,
