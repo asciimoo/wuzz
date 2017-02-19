@@ -138,6 +138,7 @@ type viewProperties struct {
 	editable bool
 	wrap     bool
 	editor   gocui.Editor
+	text     string
 }
 
 var VIEW_PROPERTIES = map[string]viewProperties{
@@ -161,6 +162,7 @@ var VIEW_PROPERTIES = map[string]viewProperties{
 		editable: true,
 		wrap:     false,
 		editor:   &singleLineEditor{&defaultEditor},
+		text:     DEFAULT_METHOD,
 	},
 	REQUEST_DATA_VIEW: {
 		title:    "Request data (POST/PUT/PATCH)",
@@ -203,10 +205,18 @@ var VIEW_PROPERTIES = map[string]viewProperties{
 		editable: false,
 		wrap:     false,
 		editor:   nil,
+		text:     SEARCH_PROMPT,
+	},
+	POPUP_VIEW: {
+		title:    "Info",
+		frame:    true,
+		editable: false,
+		wrap:     false,
+		editor:   nil,
 	},
 }
 
-var METHODS []string = []string{
+var METHODS = []string{
 	http.MethodGet,
 	http.MethodPost,
 	http.MethodPut,
@@ -220,14 +230,14 @@ var METHODS []string = []string{
 
 const DEFAULT_METHOD = http.MethodGet
 
-var CLIENT *http.Client = &http.Client{
+var CLIENT = &http.Client{
 	Timeout: time.Duration(TIMEOUT_DURATION * time.Second),
 }
-var TRANSPORT *http.Transport = &http.Transport{
+var TRANSPORT = &http.Transport{
 	Proxy: http.ProxyFromEnvironment,
 }
 
-var VIEWS []string = []string{
+var VIEWS = []string{
 	URL_VIEW,
 	URL_PARAMS_VIEW,
 	REQUEST_METHOD_VIEW,
@@ -275,7 +285,7 @@ type SearchEditor struct {
 	wuzzEditor *ViewEditor
 }
 
-// The singleLineEditor removes multilines capabilities
+// The singleLineEditor removes multi lines capabilities
 type singleLineEditor struct {
 	wuzzEditor gocui.Editor
 }
@@ -314,7 +324,7 @@ func (e *SearchEditor) Edit(v *gocui.View, key gocui.Key, ch rune, mod gocui.Mod
 	})
 }
 
-// The singleLineEditor removes multilines capabilities
+// The singleLineEditor removes multi lines capabilities
 func (e singleLineEditor) Edit(v *gocui.View, key gocui.Key, ch rune, mod gocui.Modifier) {
 	switch {
 	case (ch != 0 || key == gocui.KeySpace) && mod == 0:
@@ -365,6 +375,15 @@ func setView(g *gocui.Gui, viewName string) (*gocui.View, error) {
 		position.y1.getCoordinate(maxY+1))
 }
 
+func setViewProperties(v *gocui.View, name string) {
+	v.Title = VIEW_PROPERTIES[name].title
+	v.Frame = VIEW_PROPERTIES[name].frame
+	v.Editable = VIEW_PROPERTIES[name].editable
+	v.Wrap = VIEW_PROPERTIES[name].wrap
+	v.Editor = VIEW_PROPERTIES[name].editor
+	setViewTextAndCursor(v, VIEW_PROPERTIES[name].text)
+}
+
 func (a *App) Layout(g *gocui.Gui) error {
 	maxX, maxY := g.Size()
 
@@ -392,6 +411,10 @@ func (a *App) Layout(g *gocui.Gui) error {
 		VIEW_PROPERTIES[name] = vp
 	}
 
+	p := VIEW_PROPERTIES[URL_VIEW]
+	p.text = a.config.General.DefaultURLScheme + "://"
+	VIEW_PROPERTIES[URL_VIEW] = p
+
 	for _, name := range []string{
 		URL_VIEW,
 		URL_PARAMS_VIEW,
@@ -407,22 +430,8 @@ func (a *App) Layout(g *gocui.Gui) error {
 			if err != gocui.ErrUnknownView {
 				return err
 			}
-			v.Title = VIEW_PROPERTIES[name].title
-			v.Frame = VIEW_PROPERTIES[name].frame
-			v.Editable = VIEW_PROPERTIES[name].editable
-			v.Wrap = VIEW_PROPERTIES[name].wrap
-			v.Editor = VIEW_PROPERTIES[name].editor
+			setViewProperties(v, name)
 		}
-	}
-
-	if v, err := g.View(URL_VIEW); err == nil {
-		setViewTextAndCursor(v, a.config.General.DefaultURLScheme+"://")
-	}
-	if v, err := g.View(REQUEST_METHOD_VIEW); err == nil {
-		setViewTextAndCursor(v, DEFAULT_METHOD)
-	}
-	if v, err := g.View(SEARCH_PROMPT_VIEW); err == nil {
-		setViewTextAndCursor(v, SEARCH_PROMPT)
 	}
 
 	return nil
@@ -455,20 +464,20 @@ func (a *App) setViewByName(g *gocui.Gui, name string) error {
 }
 
 func popup(g *gocui.Gui, msg string) {
-	var popup *gocui.View
-	var err error
+	pos := VIEW_POSITIONS[POPUP_VIEW]
+	pos.x0.abs = -len(msg)/2 - 1
+	pos.x1.abs = len(msg)/2 + 1
+	VIEW_POSITIONS[POPUP_VIEW] = pos
 
-	p := VIEW_POSITIONS[POPUP_VIEW]
-	p.x0.abs = -len(msg)/2 - 1
-	p.x1.abs = len(msg)/2 + 1
-	VIEW_POSITIONS[POPUP_VIEW] = p
-	if popup, err = setView(g, POPUP_VIEW); err != nil {
+	p := VIEW_PROPERTIES[POPUP_VIEW]
+	p.text = msg
+	VIEW_PROPERTIES[POPUP_VIEW] = p
+
+	if v, err := setView(g, POPUP_VIEW); err != nil {
 		if err != gocui.ErrUnknownView {
 			return
 		}
-		setViewDefaults(popup)
-		popup.Title = VIEW_TITLES[POPUP_VIEW]
-		setViewTextAndCursor(popup, msg)
+		setViewProperties(v, POPUP_VIEW)
 		g.SetViewOnTop(POPUP_VIEW)
 	}
 }
@@ -603,7 +612,7 @@ func (a *App) SubmitRequest(g *gocui.Gui, _ *gocui.View) error {
 
 			// print status code and sorted headers
 			hkeys := make([]string, 0, len(response.Header))
-			for hname, _ := range response.Header {
+			for hname := range response.Header {
 				hkeys = append(hkeys, hname)
 			}
 			sort.Strings(hkeys)
@@ -746,7 +755,7 @@ func (a *App) printViewKeybindings(v io.Writer, viewName string) {
 	}
 	mk := make([]string, len(keys))
 	i := 0
-	for k, _ := range keys {
+	for k := range keys {
 		mk[i] = k
 		i++
 	}
