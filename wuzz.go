@@ -42,6 +42,7 @@ const (
 	REQUEST_DATA_VIEW     = "data"
 	REQUEST_HEADERS_VIEW  = "headers"
 	SEARCH_VIEW           = "search"
+	RESPONSE_INFO_VIEW    = "response-info"
 	RESPONSE_HEADERS_VIEW = "response-headers"
 	RESPONSE_BODY_VIEW    = "response-body"
 
@@ -91,9 +92,14 @@ var VIEW_POSITIONS = map[string]viewPosition{
 		position{0.5, 1},
 		position{0.3, 0},
 		position{1.0, -3}},
-	RESPONSE_HEADERS_VIEW: {
+	RESPONSE_INFO_VIEW: {
 		position{0.3, 0},
 		position{0.0, 3},
+		position{1.0, -2},
+		position{0.0, 6}},
+	RESPONSE_HEADERS_VIEW: {
+		position{0.3, 0},
+		position{0.0, 6},
 		position{1.0, -2},
 		position{0.25, 2}},
 	RESPONSE_BODY_VIEW: {
@@ -168,6 +174,13 @@ var VIEW_PROPERTIES = map[string]viewProperties{
 		editable: true,
 		wrap:     false,
 		editor:   &defaultEditor,
+	},
+	RESPONSE_INFO_VIEW: {
+		title:    "Response info",
+		frame:    true,
+		editable: true,
+		wrap:     true,
+		editor:   nil, // should be set using a.getViewEditor(g)
 	},
 	RESPONSE_HEADERS_VIEW: {
 		title:    "Response headers",
@@ -254,6 +267,7 @@ var VIEWS = []string{
 	REQUEST_DATA_VIEW,
 	REQUEST_HEADERS_VIEW,
 	SEARCH_VIEW,
+	RESPONSE_INFO_VIEW,
 	RESPONSE_HEADERS_VIEW,
 	RESPONSE_BODY_VIEW,
 }
@@ -328,10 +342,7 @@ func (e *ViewEditor) Edit(v *gocui.View, key gocui.Key, ch rune, mod gocui.Modif
 
 func (e *SearchEditor) Edit(v *gocui.View, key gocui.Key, ch rune, mod gocui.Modifier) {
 	e.wuzzEditor.Edit(v, key, ch, mod)
-	e.wuzzEditor.g.Execute(func(g *gocui.Gui) error {
-		e.wuzzEditor.app.PrintBody(g)
-		return nil
-	})
+	e.wuzzEditor.app.getAndPrintResponseBody(e.wuzzEditor.g)
 }
 
 // The singleLineEditor removes multi lines capabilities
@@ -412,7 +423,7 @@ func (a *App) Layout(g *gocui.Gui) error {
 			a.setView(g)
 		}
 
-		for _, name := range []string{RESPONSE_HEADERS_VIEW, RESPONSE_BODY_VIEW} {
+		for _, name := range []string{RESPONSE_INFO_VIEW, RESPONSE_HEADERS_VIEW, RESPONSE_BODY_VIEW} {
 			vp := VIEW_PROPERTIES[name]
 			vp.editor = a.getResponseViewEditor(g)
 			VIEW_PROPERTIES[name] = vp
@@ -428,6 +439,7 @@ func (a *App) Layout(g *gocui.Gui) error {
 			REQUEST_METHOD_VIEW,
 			REQUEST_DATA_VIEW,
 			REQUEST_HEADERS_VIEW,
+			RESPONSE_INFO_VIEW,
 			RESPONSE_HEADERS_VIEW,
 			RESPONSE_BODY_VIEW,
 			SEARCH_PROMPT_VIEW,
@@ -485,7 +497,7 @@ func (a *App) SubmitRequest(g *gocui.Gui, _ *gocui.View) error {
 func (a *App) CreateAndProcessRequest(g *gocui.Gui) {
 	defer func() {
 		if r := recover(); r != nil {
-			displayErrorInResponseBody(g, r)
+			printResponseInfo(g, r)
 		}
 	}()
 
@@ -517,7 +529,7 @@ func (a *App) CreateAndProcessRequest(g *gocui.Gui) {
 	request := getHttpRequest(r.Method, u, headers, body)
 
 	// do request
-	response := getHttpResponse(request)
+	response, duration := getHttpResponse(request)
 	defer response.Body.Close()
 
 	// set content type
@@ -545,19 +557,9 @@ func (a *App) CreateAndProcessRequest(g *gocui.Gui) {
 	a.historyIndex = len(a.history) - 1
 
 	// render response
-	g.Execute(func(g *gocui.Gui) error {
-		printResponseHeaders(g, responseHeaders)
-		a.getAndPrintResponseBody(g)
-		return nil
-	})
-}
-
-func displayErrorInResponseBody(g *gocui.Gui, a interface{}) {
-	g.Execute(func(g *gocui.Gui) error {
-		v, _ := g.View(RESPONSE_BODY_VIEW)
-		fmt.Fprint(v, a)
-		return nil
-	})
+	printResponseInfo(g, fmt.Sprintf("Response time: %v", duration))
+	printResponseHeaders(g, responseHeaders)
+	a.getAndPrintResponseBody(g)
 }
 
 func displayInfo(g *gocui.Gui, msg string) {
@@ -635,12 +637,14 @@ func getHttpRequest(method string, url *url.URL, headers http.Header, body io.Re
 	return request
 }
 
-func getHttpResponse(request *http.Request) *http.Response {
+func getHttpResponse(request *http.Request) (*http.Response, time.Duration) {
+	start := time.Now()
 	response, err := CLIENT.Do(request)
+	duration := time.Since(start)
 	if err != nil {
 		panic(fmt.Sprintf("Response error: %v", err))
 	}
-	return response
+	return response, duration
 }
 
 func getSortedResponseHeaders(response *http.Response) string {
@@ -674,38 +678,45 @@ func statusCodeToColor(code int) int {
 	}
 }
 
-func printResponseHeaders(g *gocui.Gui, headersString string) {
-	v, _ := g.View(RESPONSE_HEADERS_VIEW)
-	v.Clear()
-	fmt.Fprint(v, headersString)
-	if _, err := v.Line(0); err != nil {
+func printResponseInfo(g *gocui.Gui, info interface{}) {
+	g.Execute(func(g *gocui.Gui) error {
+		v, _ := g.View(RESPONSE_INFO_VIEW)
+		v.Clear()
+		fmt.Fprint(v, info)
 		v.SetOrigin(0, 0)
-	}
+		return nil
+	})
 }
 
-func (a *App) PrintBody(g *gocui.Gui) {
+func printResponseHeaders(g *gocui.Gui, headersString string) {
 	g.Execute(func(g *gocui.Gui) error {
-		a.getAndPrintResponseBody(g)
+		v, _ := g.View(RESPONSE_HEADERS_VIEW)
+		v.Clear()
+		fmt.Fprint(v, headersString)
+		if _, err := v.Line(0); err != nil {
+			v.SetOrigin(0, 0)
+		}
 		return nil
 	})
 }
 
 func (a *App) getAndPrintResponseBody(g *gocui.Gui) {
+	title, body, shouldSetOrigin := a.getResponseBody(g)
+	printResponseBody(g, title, body, shouldSetOrigin)
+}
+
+func (a *App) getResponseBody(g *gocui.Gui) (title, body string, shouldSetOrigin bool) {
 	if len(a.history) == 0 {
 		return
 	}
 	req := a.history[a.historyIndex]
-	if req.RawResponseBody == nil {
-		return
-	}
 
-	title, body, shouldSetOrigin := getResponseBody(
+	return getResponseBody(
 		getViewValue(g, SEARCH_VIEW),
 		req.RawResponseBody,
 		req.ContentType,
 		a.config.General,
 	)
-	printResponseBody(g, title, body, shouldSetOrigin)
 }
 
 func getResponseBody(
@@ -714,38 +725,41 @@ func getResponseBody(
 	contentType string,
 	generalAppOptions config.GeneralOptions) (title, body string, shouldSetOrigin bool) {
 
-	isText := strings.Contains(contentType, "text")
-	isApplication := strings.Contains(contentType, "application")
-	isJson := strings.Contains(contentType, "application/json")
-	isBinary := !(isText || isApplication)
-
 	title = VIEW_PROPERTIES[RESPONSE_BODY_VIEW].title
-	if searchString == "" || isBinary {
-		if isBinary {
-			title += " [binary content]"
-			body = hex.Dump(responseBody)
-		} else {
-			if isJson && generalAppOptions.FormatJSON {
-				responseBody = formatJson(responseBody)
-			}
-			body = string(responseBody)
-		}
-		if !generalAppOptions.PreserveScrollPosition {
-			shouldSetOrigin = true
-		}
-	} else {
-		shouldSetOrigin = true
-		if search_re, err := regexp.Compile(searchString); err != nil {
-			body = "Error: invalid search regexp"
-		} else {
-			results := search_re.FindAll(responseBody, 1000)
-			if len(results) == 0 {
-				title = "No results"
-				body = "Error: no results"
+
+	if responseBody != nil {
+		isText := strings.Contains(contentType, "text")
+		isApplication := strings.Contains(contentType, "application")
+		isJson := strings.Contains(contentType, "application/json")
+		isBinary := !(isText || isApplication)
+
+		if searchString == "" || isBinary {
+			if isBinary {
+				title += " [binary content]"
+				body = hex.Dump(responseBody)
 			} else {
-				title = fmt.Sprintf("%d results", len(results))
-				for _, result := range results {
-					body += fmt.Sprintf("-----\n%s\n", result)
+				if isJson && generalAppOptions.FormatJSON {
+					responseBody = formatJson(responseBody)
+				}
+				body = string(responseBody)
+			}
+			if !generalAppOptions.PreserveScrollPosition {
+				shouldSetOrigin = true
+			}
+		} else {
+			shouldSetOrigin = true
+			if search_re, err := regexp.Compile(searchString); err != nil {
+				body = "Error: invalid search regexp"
+			} else {
+				results := search_re.FindAll(responseBody, 1000)
+				if len(results) == 0 {
+					title = "No results"
+					body = "Error: no results"
+				} else {
+					title = fmt.Sprintf("%d results", len(results))
+					for _, result := range results {
+						body += fmt.Sprintf("-----\n%s\n", result)
+					}
 				}
 			}
 		}
@@ -755,14 +769,18 @@ func getResponseBody(
 }
 
 func printResponseBody(g *gocui.Gui, title string, body string, shouldSetOrigin bool) {
-	v, _ := g.View(RESPONSE_BODY_VIEW)
-	v.Clear()
-	v.Title = title
-	fmt.Fprint(v, body)
+	g.Execute(func(g *gocui.Gui) error {
+		v, _ := g.View(RESPONSE_BODY_VIEW)
+		v.Clear()
+		v.Title = title
+		fmt.Fprint(v, body)
 
-	if _, err := v.Line(0); shouldSetOrigin || err != nil {
-		v.SetOrigin(0, 0)
-	}
+		if _, err := v.Line(0); shouldSetOrigin || err != nil {
+			v.SetOrigin(0, 0)
+		}
+
+		return nil
+	})
 }
 
 func formatJson(text []byte) []byte {
@@ -1149,7 +1167,7 @@ func (a *App) restoreRequest(g *gocui.Gui, idx int) {
 	v, _ = g.View(RESPONSE_HEADERS_VIEW)
 	setViewTextAndCursor(v, r.ResponseHeaders)
 
-	a.PrintBody(g)
+	a.getAndPrintResponseBody(g)
 
 }
 
