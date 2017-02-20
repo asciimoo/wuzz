@@ -319,7 +319,7 @@ func init() {
 	CLIENT.Transport = TRANSPORT
 }
 
-// Editor funcs
+// Editor functions
 
 func (e *ViewEditor) Edit(v *gocui.View, key gocui.Key, ch rune, mod gocui.Modifier) {
 	// handle back-tab (\033[Z) sequence
@@ -350,7 +350,7 @@ func (e singleLineEditor) Edit(v *gocui.View, key gocui.Key, ch rune, mod gocui.
 	switch {
 	case (ch != 0 || key == gocui.KeySpace) && mod == 0:
 		e.wuzzEditor.Edit(v, key, ch, mod)
-		// At the end of the line the default gcui editor adds a whitespace
+		// At the end of the line the default gocui editor adds a whitespace
 		// Force him to remove
 		ox, _ := v.Cursor()
 		if ox > 1 && ox >= len(v.Buffer())-2 {
@@ -480,7 +480,7 @@ func (a *App) setViewByName(g *gocui.Gui, name string) error {
 			return a.setView(g)
 		}
 	}
-	return fmt.Errorf("View not found")
+	return errors.New("View not found")
 }
 
 func (a *App) SubmitRequest(g *gocui.Gui, _ *gocui.View) error {
@@ -840,7 +840,7 @@ func (a *App) setKey(g *gocui.Gui, keyStr, commandStr, viewName string) error {
 	return nil
 }
 
-func (a *App) printViewKeybindings(v io.Writer, viewName string) {
+func (a *App) printViewKeyBindings(v io.Writer, viewName string) {
 	keys, found := a.config.Keys[viewName]
 	if !found {
 		return
@@ -859,7 +859,7 @@ func (a *App) printViewKeybindings(v io.Writer, viewName string) {
 }
 
 func (a *App) SetKeys(g *gocui.Gui) error {
-	// load config keybindings
+	// load config key bindings
 	for viewName, keys := range a.config.Keys {
 		if viewName == "global" {
 			viewName = ALL_VIEWS
@@ -884,12 +884,12 @@ func (a *App) SetKeys(g *gocui.Gui) error {
 		help.Title = VIEW_PROPERTIES[HELP_VIEW].title
 		help.Highlight = false
 		fmt.Fprint(help, "Keybindings:\n")
-		a.printViewKeybindings(help, "global")
+		a.printViewKeyBindings(help, "global")
 		for _, viewName := range VIEWS {
 			if _, found := a.config.Keys[viewName]; !found {
 				continue
 			}
-			a.printViewKeybindings(help, viewName)
+			a.printViewKeyBindings(help, viewName)
 		}
 		g.SetViewOnTop(HELP_VIEW)
 		g.SetCurrentView(HELP_VIEW)
@@ -1010,11 +1010,11 @@ func (a *App) SetKeys(g *gocui.Gui) error {
 	return nil
 }
 
-func (a *App) closePopup(g *gocui.Gui, viewname string) {
-	_, err := g.View(viewname)
+func (a *App) closePopup(g *gocui.Gui, viewName string) {
+	_, err := g.View(viewName)
 	if err == nil {
 		a.currentPopup = ""
-		g.DeleteView(viewname)
+		g.DeleteView(viewName)
 		g.SetCurrentView(VIEWS[a.viewIndex%len(VIEWS)])
 		g.Cursor = true
 	}
@@ -1258,7 +1258,7 @@ func (a *App) ParseArgs(g *gocui.Gui, args []string) error {
 			if err != nil || timeout <= 0 {
 				return errors.New("Invalid timeout value")
 			}
-			a.config.General.Timeout = config.Duration{time.Duration(timeout) * time.Millisecond}
+			a.config.General.Timeout = config.Duration{Duration: time.Duration(timeout) * time.Millisecond}
 		case "--compressed":
 			vh, _ := g.View(REQUEST_HEADERS_VIEW)
 			if strings.Index(getViewValue(g, REQUEST_HEADERS_VIEW), "Accept-Encoding") == -1 {
