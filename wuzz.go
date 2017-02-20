@@ -547,7 +547,7 @@ func (a *App) CreateAndProcessRequest(g *gocui.Gui) {
 	// render response
 	g.Execute(func(g *gocui.Gui) error {
 		printResponseHeaders(g, responseHeaders)
-		a.PrintBody(g)
+		a.getAndPrintResponseBody(g)
 		return nil
 	})
 }
@@ -685,60 +685,93 @@ func printResponseHeaders(g *gocui.Gui, headersString string) {
 
 func (a *App) PrintBody(g *gocui.Gui) {
 	g.Execute(func(g *gocui.Gui) error {
-		if len(a.history) == 0 {
-			return nil
-		}
-		req := a.history[a.historyIndex]
-		if req.RawResponseBody == nil {
-			return nil
-		}
-		vrb, _ := g.View(RESPONSE_BODY_VIEW)
-		vrb.Clear()
-
-		responseBody := req.RawResponseBody
-		// pretty-print json
-		if strings.Contains(req.ContentType, "application/json") && a.config.General.FormatJSON {
-			formatter := jsoncolor.NewFormatter()
-			buf := bytes.NewBuffer(make([]byte, 0, len(req.RawResponseBody)))
-			err := formatter.Format(buf, req.RawResponseBody)
-			if err == nil {
-				responseBody = buf.Bytes()
-			}
-		}
-
-		is_binary := strings.Index(req.ContentType, "text") == -1 && strings.Index(req.ContentType, "application") == -1
-		search_text := getViewValue(g, SEARCH_VIEW)
-		if search_text == "" || is_binary {
-			vrb.Title = VIEW_PROPERTIES[RESPONSE_BODY_VIEW].title
-			if is_binary {
-				vrb.Title += " [binary content]"
-				fmt.Fprint(vrb, hex.Dump(req.RawResponseBody))
-			} else {
-				vrb.Write(responseBody)
-			}
-			if _, err := vrb.Line(0); !a.config.General.PreserveScrollPosition || err != nil {
-				vrb.SetOrigin(0, 0)
-			}
-			return nil
-		}
-		vrb.SetOrigin(0, 0)
-		search_re, err := regexp.Compile(search_text)
-		if err != nil {
-			fmt.Fprint(vrb, "Error: invalid search regexp")
-			return nil
-		}
-		results := search_re.FindAll(req.RawResponseBody, 1000)
-		if len(results) == 0 {
-			vrb.Title = "No results"
-			fmt.Fprint(vrb, "Error: no results")
-			return nil
-		}
-		vrb.Title = fmt.Sprintf("%d results", len(results))
-		for _, result := range results {
-			fmt.Fprintf(vrb, "-----\n%s\n", result)
-		}
+		a.getAndPrintResponseBody(g)
 		return nil
 	})
+}
+
+func (a *App) getAndPrintResponseBody(g *gocui.Gui) {
+	if len(a.history) == 0 {
+		return
+	}
+	req := a.history[a.historyIndex]
+	if req.RawResponseBody == nil {
+		return
+	}
+
+	title, body, shouldSetOrigin := getResponseBody(
+		getViewValue(g, SEARCH_VIEW),
+		req.RawResponseBody,
+		req.ContentType,
+		a.config.General,
+	)
+	printResponseBody(g, title, body, shouldSetOrigin)
+}
+
+func getResponseBody(
+	searchString string,
+	responseBody []byte,
+	contentType string,
+	generalAppOptions config.GeneralOptions) (title, body string, shouldSetOrigin bool) {
+
+	isText := strings.Contains(contentType, "text")
+	isApplication := strings.Contains(contentType, "application")
+	isJson := strings.Contains(contentType, "application/json")
+	isBinary := !(isText || isApplication)
+
+	title = VIEW_PROPERTIES[RESPONSE_BODY_VIEW].title
+	if searchString == "" || isBinary {
+		if isBinary {
+			title += " [binary content]"
+			body = hex.Dump(responseBody)
+		} else {
+			if isJson && generalAppOptions.FormatJSON {
+				responseBody = formatJson(responseBody)
+			}
+			body = string(responseBody)
+		}
+		if !generalAppOptions.PreserveScrollPosition {
+			shouldSetOrigin = true
+		}
+	} else {
+		shouldSetOrigin = true
+		if search_re, err := regexp.Compile(searchString); err != nil {
+			body = "Error: invalid search regexp"
+		} else {
+			results := search_re.FindAll(responseBody, 1000)
+			if len(results) == 0 {
+				title = "No results"
+				body = "Error: no results"
+			} else {
+				title = fmt.Sprintf("%d results", len(results))
+				for _, result := range results {
+					body += fmt.Sprintf("-----\n%s\n", result)
+				}
+			}
+		}
+	}
+
+	return title, body, shouldSetOrigin
+}
+
+func printResponseBody(g *gocui.Gui, title string, body string, shouldSetOrigin bool) {
+	v, _ := g.View(RESPONSE_BODY_VIEW)
+	v.Clear()
+	v.Title = title
+	fmt.Fprint(v, body)
+
+	if _, err := v.Line(0); shouldSetOrigin || err != nil {
+		v.SetOrigin(0, 0)
+	}
+}
+
+func formatJson(text []byte) []byte {
+	formatter := jsoncolor.NewFormatter()
+	buf := bytes.NewBuffer(make([]byte, 0, len(text)))
+	if err := formatter.Format(buf, text); err == nil {
+		return buf.Bytes()
+	}
+	return text
 }
 
 func parseKey(k string) (interface{}, gocui.Modifier, error) {
