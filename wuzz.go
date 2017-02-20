@@ -55,15 +55,6 @@ const (
 	HELP_VIEW          = "help"
 )
 
-var VIEW_TITLES = map[string]string{
-	POPUP_VIEW:       "Info",
-	ERROR_VIEW:       "Error",
-	HISTORY_VIEW:     "History",
-	SAVE_DIALOG_VIEW: "Save Response (enter to submit, ctrl+q to cancel)",
-	METHOD_LIST_VIEW: "Methods",
-	HELP_VIEW:        "Help",
-}
-
 type position struct {
 	// value = prc * MAX + abs
 	pct float32
@@ -207,12 +198,31 @@ var VIEW_PROPERTIES = map[string]viewProperties{
 		editor:   nil,
 		text:     SEARCH_PROMPT,
 	},
+	ERROR_VIEW: {
+		title:    "Error",
+		frame:    true,
+		editable: false,
+		wrap:     false,
+		editor:   nil,
+	},
 	POPUP_VIEW: {
 		title:    "Info",
 		frame:    true,
 		editable: false,
 		wrap:     false,
 		editor:   nil,
+	},
+	HISTORY_VIEW: {
+		title: "History",
+	},
+	SAVE_DIALOG_VIEW: {
+		title: "Save Response (enter to submit, ctrl+q to cancel)",
+	},
+	METHOD_LIST_VIEW: {
+		title: "Methods",
+	},
+	HELP_VIEW: {
+		title: "Help",
 	},
 }
 
@@ -385,52 +395,50 @@ func setViewProperties(v *gocui.View, name string) {
 }
 
 func (a *App) Layout(g *gocui.Gui) error {
-	maxX, maxY := g.Size()
-
-	if maxX < MIN_WIDTH || maxY < MIN_HEIGHT {
+	if maxX, maxY := g.Size(); maxX < MIN_WIDTH || maxY < MIN_HEIGHT {
 		if v, err := setView(g, ERROR_VIEW); err != nil {
 			if err != gocui.ErrUnknownView {
 				return err
 			}
-			setViewDefaults(v)
-			v.Title = VIEW_TITLES[ERROR_VIEW]
+			setViewProperties(v, ERROR_VIEW)
+
 			g.Cursor = false
 			fmt.Fprintln(v, "Terminal is too small")
 		}
-		return nil
-	}
-	if _, err := g.View(ERROR_VIEW); err == nil {
-		g.DeleteView(ERROR_VIEW)
-		g.Cursor = true
-		a.setView(g)
-	}
+	} else {
+		if _, err := g.View(ERROR_VIEW); err == nil {
+			g.DeleteView(ERROR_VIEW)
+			g.Cursor = true
+			a.setView(g)
+		}
 
-	for _, name := range []string{RESPONSE_HEADERS_VIEW, RESPONSE_BODY_VIEW} {
-		vp := VIEW_PROPERTIES[name]
-		vp.editor = a.getResponseViewEditor(g)
-		VIEW_PROPERTIES[name] = vp
-	}
+		for _, name := range []string{RESPONSE_HEADERS_VIEW, RESPONSE_BODY_VIEW} {
+			vp := VIEW_PROPERTIES[name]
+			vp.editor = a.getResponseViewEditor(g)
+			VIEW_PROPERTIES[name] = vp
+		}
 
-	p := VIEW_PROPERTIES[URL_VIEW]
-	p.text = a.config.General.DefaultURLScheme + "://"
-	VIEW_PROPERTIES[URL_VIEW] = p
+		p := VIEW_PROPERTIES[URL_VIEW]
+		p.text = a.config.General.DefaultURLScheme + "://"
+		VIEW_PROPERTIES[URL_VIEW] = p
 
-	for _, name := range []string{
-		URL_VIEW,
-		URL_PARAMS_VIEW,
-		REQUEST_METHOD_VIEW,
-		REQUEST_DATA_VIEW,
-		REQUEST_HEADERS_VIEW,
-		RESPONSE_HEADERS_VIEW,
-		RESPONSE_BODY_VIEW,
-		SEARCH_PROMPT_VIEW,
-		SEARCH_VIEW,
-	} {
-		if v, err := setView(g, name); err != nil {
-			if err != gocui.ErrUnknownView {
-				return err
+		for _, name := range []string{
+			URL_VIEW,
+			URL_PARAMS_VIEW,
+			REQUEST_METHOD_VIEW,
+			REQUEST_DATA_VIEW,
+			REQUEST_HEADERS_VIEW,
+			RESPONSE_HEADERS_VIEW,
+			RESPONSE_BODY_VIEW,
+			SEARCH_PROMPT_VIEW,
+			SEARCH_VIEW,
+		} {
+			if v, err := setView(g, name); err != nil {
+				if err != gocui.ErrUnknownView {
+					return err
+				}
+				setViewProperties(v, name)
 			}
-			setViewProperties(v, name)
 		}
 	}
 
@@ -463,7 +471,96 @@ func (a *App) setViewByName(g *gocui.Gui, name string) error {
 	return fmt.Errorf("View not found")
 }
 
-func popup(g *gocui.Gui, msg string) {
+func (a *App) SubmitRequest(g *gocui.Gui, _ *gocui.View) error {
+	rhv, _ := g.View(RESPONSE_HEADERS_VIEW)
+	rhv.Clear()
+	rbv, _ := g.View(RESPONSE_BODY_VIEW)
+	rbv.Clear()
+
+	go a.CreateAndProcessRequest(g)
+
+	return nil
+}
+
+func (a *App) CreateAndProcessRequest(g *gocui.Gui) {
+	defer func() {
+		if r := recover(); r != nil {
+			displayErrorInResponseBody(g, r)
+		}
+	}()
+
+	displayInfo(g, "Sending request..")
+	defer g.DeleteView(POPUP_VIEW)
+
+	var r *Request = &Request{}
+
+	// get url
+	r.Url = getViewValue(g, URL_VIEW)
+	u := getUrlFromString(r.Url)
+
+	// get request method
+	r.Method = getViewValue(g, REQUEST_METHOD_VIEW)
+
+	// get params
+	p := getViewValue(g, URL_PARAMS_VIEW)
+	u.RawQuery = getQuery(p, u)
+	r.GetParams = u.RawQuery
+
+	// set headers
+	r.Headers = getViewValue(g, REQUEST_HEADERS_VIEW)
+	headers := getHttpHeaders(r.Headers)
+
+	// set body
+	body := getRequestBody(r.Method, g, headers)
+
+	// create request
+	request := getHttpRequest(r.Method, u, headers, body)
+
+	// do request
+	response := getHttpResponse(request)
+	defer response.Body.Close()
+
+	// set content type
+	r.ContentType = response.Header.Get("Content-Type")
+
+	// extract body
+	if response.Header.Get("Content-Encoding") == "gzip" {
+		reader, err := gzip.NewReader(response.Body)
+		if err != nil {
+			panic(fmt.Sprintf("Cannot uncompress response: %v", err))
+		}
+		defer reader.Close()
+		response.Body = reader
+	}
+
+	if bodyBytes, err := ioutil.ReadAll(response.Body); err == nil {
+		r.RawResponseBody = bodyBytes
+	}
+
+	responseHeaders := getSortedResponseHeaders(response)
+	r.ResponseHeaders = responseHeaders
+
+	// add to history
+	a.history = append(a.history, r)
+	a.historyIndex = len(a.history) - 1
+
+	// render response
+	g.Execute(func(g *gocui.Gui) error {
+		printResponseHeaders(g, responseHeaders)
+		a.PrintBody(g)
+		return nil
+	})
+}
+
+func displayErrorInResponseBody(g *gocui.Gui, a interface{}) {
+	g.Execute(func(g *gocui.Gui) error {
+		v, _ := g.View(RESPONSE_BODY_VIEW)
+		fmt.Fprint(v, a)
+		return nil
+	})
+}
+
+func displayInfo(g *gocui.Gui, msg string) {
 	pos := VIEW_POSITIONS[POPUP_VIEW]
 	pos.x0.abs = -len(msg)/2 - 1
 	pos.x1.abs = len(msg)/2 + 1
@@ -482,164 +579,108 @@ func popup(g *gocui.Gui, msg string) {
 	}
 }
 
-func (a *App) SubmitRequest(g *gocui.Gui, _ *gocui.View) error {
-	vrb, _ := g.View(RESPONSE_BODY_VIEW)
-	vrb.Clear()
-	vrh, _ := g.View(RESPONSE_HEADERS_VIEW)
-	vrh.Clear()
-	popup(g, "Sending request..")
+func getUrlFromString(urlString string) *url.URL {
+	u, err := url.Parse(urlString)
+	if err != nil {
+		panic(fmt.Sprintf("URL parse error: %v", err))
+	}
+	return u
+}
 
-	var r *Request = &Request{}
+func getQuery(paramsString string, u *url.URL) string {
+	query, err := url.ParseQuery(strings.Replace(paramsString, "\n", "&", -1))
+	if err != nil {
+		panic(fmt.Sprintf("Invalid GET parameters: %v", err))
+	}
+	originalQuery := u.Query()
+	for k, v := range query {
+		originalQuery.Add(k, strings.Join(v, ""))
+	}
+	return originalQuery.Encode()
+}
 
-	go func(g *gocui.Gui, a *App, r *Request) error {
-		defer g.DeleteView(POPUP_VIEW)
-		// parse url
-		r.Url = getViewValue(g, URL_VIEW)
-		u, err := url.Parse(r.Url)
-		if err != nil {
-			g.Execute(func(g *gocui.Gui) error {
-				vrb, _ := g.View(RESPONSE_BODY_VIEW)
-				fmt.Fprintf(vrb, "URL parse error: %v", err)
-				return nil
-			})
-			return nil
-		}
-
-		q, err := url.ParseQuery(strings.Replace(getViewValue(g, URL_PARAMS_VIEW), "\n", "&", -1))
-		if err != nil {
-			g.Execute(func(g *gocui.Gui) error {
-				vrb, _ := g.View(RESPONSE_BODY_VIEW)
-				fmt.Fprintf(vrb, "Invalid GET parameters: %v", err)
-				return nil
-			})
-			return nil
-		}
-		originalQuery := u.Query()
-		for k, v := range q {
-			originalQuery.Add(k, strings.Join(v, ""))
-		}
-		u.RawQuery = originalQuery.Encode()
-		r.GetParams = u.RawQuery
-
-		// parse method
-		r.Method = getViewValue(g, REQUEST_METHOD_VIEW)
-
-		// set headers
-		headers := http.Header{}
-		headers.Set("User-Agent", "")
-		r.Headers = getViewValue(g, REQUEST_HEADERS_VIEW)
-		for _, header := range strings.Split(r.Headers, "\n") {
-			if header != "" {
-				header_parts := strings.SplitN(header, ": ", 2)
-				if len(header_parts) != 2 {
-					g.Execute(func(g *gocui.Gui) error {
-						vrb, _ := g.View(RESPONSE_BODY_VIEW)
-						fmt.Fprintf(vrb, "Invalid header: %v", header)
-						return nil
-					})
-					return nil
-				}
-				headers.Set(header_parts[0], header_parts[1])
+func getHttpHeaders(h string) http.Header {
+	headers := http.Header{}
+	headers.Set("User-Agent", "")
+	for _, header := range strings.Split(h, "\n") {
+		if header != "" {
+			header_parts := strings.SplitN(header, ": ", 2)
+			if len(header_parts) != 2 {
+				panic(fmt.Sprintf("Invalid header: %v", header))
 			}
+			headers.Set(header_parts[0], header_parts[1])
 		}
+	}
+	return headers
+}
 
-		var body io.Reader
-
-		// parse POST/PUT/PATCH data
-		if r.Method == http.MethodPost || r.Method == http.MethodPut || r.Method == http.MethodPatch {
-			bodyStr := getViewValue(g, REQUEST_DATA_VIEW)
-			if headers.Get("Content-Type") == "application/x-www-form-urlencoded" {
-				bodyStr = strings.Replace(bodyStr, "\n", "&", -1)
-			}
-			body = bytes.NewBufferString(bodyStr)
+func getRequestBody(method string, g *gocui.Gui, headers http.Header) io.Reader {
+	var body io.Reader
+	if method == http.MethodPost || method == http.MethodPut || method == http.MethodPatch {
+		bodyStr := getViewValue(g, REQUEST_DATA_VIEW)
+		if headers.Get("Content-Type") == "application/x-www-form-urlencoded" {
+			bodyStr = strings.Replace(bodyStr, "\n", "&", -1)
 		}
+		body = bytes.NewBufferString(bodyStr)
+	}
+	return body
+}
 
-		// create request
-		req, err := http.NewRequest(r.Method, u.String(), body)
-		if err != nil {
-			g.Execute(func(g *gocui.Gui) error {
-				vrb, _ := g.View(RESPONSE_BODY_VIEW)
-				fmt.Fprintf(vrb, "Request error: %v", err)
-				return nil
-			})
-			return nil
-		}
-		req.Header = headers
+func getHttpRequest(method string, url *url.URL, headers http.Header, body io.Reader) *http.Request {
+	request, err := http.NewRequest(method, url.String(), body)
+	if err != nil {
+		panic(fmt.Sprintf("Request error: %v", err))
+	}
+	request.Header = headers
+	return request
+}
 
-		// do request
-		response, err := CLIENT.Do(req)
-		if err != nil {
-			g.Execute(func(g *gocui.Gui) error {
-				vrb, _ := g.View(RESPONSE_BODY_VIEW)
-				fmt.Fprintf(vrb, "Response error: %v", err)
-				return nil
-			})
-			return nil
-		}
-		defer response.Body.Close()
+func getHttpResponse(request *http.Request) *http.Response {
+	response, err := CLIENT.Do(request)
+	if err != nil {
+		panic(fmt.Sprintf("Response error: %v", err))
+	}
+	return response
+}
 
-		// extract body
-		r.ContentType = response.Header.Get("Content-Type")
-		if response.Header.Get("Content-Encoding") == "gzip" {
-			reader, err := gzip.NewReader(response.Body)
-			if err == nil {
-				defer reader.Close()
-				response.Body = reader
-			} else {
-				g.Execute(func(g *gocui.Gui) error {
-					vrb, _ := g.View(RESPONSE_BODY_VIEW)
-					fmt.Fprintf(vrb, "Cannot uncompress response: %v", err)
-					return nil
-				})
-				return nil
-			}
-		}
+func getSortedResponseHeaders(response *http.Response) string {
+	keys := make([]string, 0, len(response.Header))
+	for name := range response.Header {
+		keys = append(keys, name)
+	}
+	sort.Strings(keys)
+	status_color := statusCodeToColor(response.StatusCode)
+	headerString := fmt.Sprintf(
+		"\x1b[0;%dmHTTP/1.1 %v %v\x1b[0;0m\n",
+		status_color,
+		response.StatusCode,
+		http.StatusText(response.StatusCode),
+	)
+	for _, name := range keys {
+		headerString += fmt.Sprintf(
+			"\x1b[0;33m%v:\x1b[0;0m %v\n",
+			name,
+			strings.Join(response.Header[name], ","),
+		)
+	}
+	return headerString
+}
 
-		bodyBytes, err := ioutil.ReadAll(response.Body)
-		if err == nil {
-			r.RawResponseBody = bodyBytes
-		}
+func statusCodeToColor(code int) int {
+	if code == 200 {
+		return 32
+	} else {
+		return 31
+	}
+}
 
-		// add to history
-		a.history = append(a.history, r)
-		a.historyIndex = len(a.history) - 1
-
-		// render response
-		g.Execute(func(g *gocui.Gui) error {
-			vrh, _ := g.View(RESPONSE_HEADERS_VIEW)
-
-			a.PrintBody(g)
-
-			// print status code and sorted headers
-			hkeys := make([]string, 0, len(response.Header))
-			for hname := range response.Header {
-				hkeys = append(hkeys, hname)
-			}
-			sort.Strings(hkeys)
-			status_color := 32
-			if response.StatusCode != 200 {
-				status_color = 31
-			}
-			header_str := fmt.Sprintf(
-				"\x1b[0;%dmHTTP/1.1 %v %v\x1b[0;0m\n",
-				status_color,
-				response.StatusCode,
-				http.StatusText(response.StatusCode),
-			)
-			for _, hname := range hkeys {
-				header_str += fmt.Sprintf("\x1b[0;33m%v:\x1b[0;0m %v\n", hname, strings.Join(response.Header[hname], ","))
-			}
-			fmt.Fprint(vrh, header_str)
-			if _, err := vrh.Line(0); err != nil {
-				vrh.SetOrigin(0, 0)
-			}
-			r.ResponseHeaders = header_str
-			return nil
-		})
-		return nil
-	}(g, a, r)
-
-	return nil
+func printResponseHeaders(g *gocui.Gui, headersString string) {
+	v, _ := g.View(RESPONSE_HEADERS_VIEW)
+	v.Clear()
+	fmt.Fprint(v, headersString)
+	if _, err := v.Line(0); err != nil {
+		v.SetOrigin(0, 0)
+	}
 }
 
 func (a *App) PrintBody(g *gocui.Gui) {
@@ -668,7 +709,7 @@ func (a *App) PrintBody(g *gocui.Gui) {
 		is_binary := strings.Index(req.ContentType, "text") == -1 && strings.Index(req.ContentType, "application") == -1
 		search_text := getViewValue(g, SEARCH_VIEW)
 		if search_text == "" || is_binary {
-			vrb.Title = RESPONSE_BODY_VIEW
+			vrb.Title = VIEW_PROPERTIES[RESPONSE_BODY_VIEW].title
 			if is_binary {
 				vrb.Title += " [binary content]"
 				fmt.Fprint(vrb, hex.Dump(req.RawResponseBody))
@@ -789,7 +830,7 @@ func (a *App) SetKeys(g *gocui.Gui) error {
 		if err != nil {
 			return err
 		}
-		help.Title = VIEW_TITLES[HELP_VIEW]
+		help.Title = VIEW_PROPERTIES[HELP_VIEW].title
 		help.Highlight = false
 		fmt.Fprint(help, "Keybindings:\n")
 		a.printViewKeybindings(help, "global")
@@ -941,16 +982,22 @@ func (a *App) CreatePopupView(name string, width, height int, g *gocui.Gui) (v *
 	if width > maxX-4 {
 		width = maxX - 4
 	}
-	v, err = g.SetView(name, maxX/2-width/2-1, maxY/2-height/2-1, maxX/2+width/2, maxY/2+height/2+1)
-	if err != nil && err != gocui.ErrUnknownView {
-		return
+
+	VIEW_POSITIONS[name] = viewPosition{
+		position{0.5, -width/2 - 1},
+		position{0.5, -height/2 - 1},
+		position{0.5, width / 2},
+		position{0.5, height/2 + 1},
 	}
-	err = nil
-	v.Wrap = false
-	v.Frame = true
-	v.Highlight = true
-	v.SelFgColor = gocui.ColorYellow
-	a.currentPopup = name
+	v, err = setView(g, name)
+	if err == nil || err == gocui.ErrUnknownView {
+		err = nil
+		v.Wrap = false
+		v.Frame = true
+		v.Highlight = true
+		v.SelFgColor = gocui.ColorYellow
+		a.currentPopup = name
+	}
 	return
 }
 
@@ -966,7 +1013,7 @@ func (a *App) ToggleHistory(g *gocui.Gui, _ *gocui.View) (err error) {
 		return
 	}
 
-	history.Title = VIEW_TITLES[HISTORY_VIEW]
+	history.Title = VIEW_PROPERTIES[HISTORY_VIEW].title
 
 	if len(a.history) == 0 {
 		setViewTextAndCursor(history, "[!] No items in history")
@@ -1002,7 +1049,7 @@ func (a *App) ToggleMethodList(g *gocui.Gui, _ *gocui.View) (err error) {
 	if err != nil {
 		return
 	}
-	method.Title = VIEW_TITLES[METHOD_LIST_VIEW]
+	method.Title = VIEW_PROPERTIES[METHOD_LIST_VIEW].title
 
 	cur := getViewValue(g, REQUEST_METHOD_VIEW)
 
@@ -1025,7 +1072,7 @@ func (a *App) OpenSaveDialog(g *gocui.Gui, _ *gocui.View) (err error) {
 
 	g.Cursor = true
 
-	dialog.Title = VIEW_TITLES[SAVE_DIALOG_VIEW]
+	dialog.Title = VIEW_PROPERTIES[SAVE_DIALOG_VIEW].title
 	dialog.Editable = true
 	dialog.Wrap = false
 
@@ -1223,11 +1270,6 @@ func getViewValue(g *gocui.Gui, name string) string {
 		return ""
 	}
 	return strings.TrimSpace(v.Buffer())
-}
-
-func setViewDefaults(v *gocui.View) {
-	v.Frame = true
-	v.Wrap = false
 }
 
 func setViewTextAndCursor(v *gocui.View, s string) {
