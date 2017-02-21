@@ -6,11 +6,11 @@ import (
 
 // Acts as an editor but does nothing
 type EmptyEditor struct {
-	// (!) Deliberately left empty
+	// Deliberately left empty
 }
 
 func (e EmptyEditor) Edit(v *gocui.View, key gocui.Key, ch rune, mod gocui.Modifier) {
-	// (!) Deliberately left empty
+	// Deliberately left empty
 }
 
 // Handles BackTab (\033[Z) sequence

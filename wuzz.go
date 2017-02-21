@@ -293,6 +293,8 @@ type App struct {
 	config       *config.Config
 }
 
+// EDITORS
+
 var defaultEditor, singleLineEditor, searchEditor, emptyEditor gocui.Editor
 
 func (a *App) getPrevViewFunc(g *gocui.Gui) func() {
@@ -323,6 +325,8 @@ func (a *App) initiateEditors(g *gocui.Gui) {
 		false}
 }
 
+// VIEW POSITIONS AND PROPERTIES
+
 func (p position) getCoordinate(max int) int {
 	return int(p.pct*float32(max)) + p.abs
 }
@@ -347,6 +351,8 @@ func setViewProperties(v *gocui.View, name string) {
 	}
 	setViewTextAndCursor(v, VIEW_PROPERTIES[name].text)
 }
+
+// LAYOUT
 
 func (a *App) Layout(g *gocui.Gui) error {
 	if maxX, maxY := g.Size(); maxX < MIN_WIDTH || maxY < MIN_HEIGHT {
@@ -382,10 +388,11 @@ func (a *App) Layout(g *gocui.Gui) error {
 			SEARCH_PROMPT_VIEW,
 			SEARCH_VIEW,
 		} {
-			if v, err := setView(g, name); err != nil {
-				if err != gocui.ErrUnknownView {
-					return err
-				}
+			if v, err := setView(g, name); err == nil {
+				// Deliberately left empty
+			} else if err != gocui.ErrUnknownView {
+				return err
+			} else {
 				setViewProperties(v, name)
 			}
 		}
@@ -393,6 +400,8 @@ func (a *App) Layout(g *gocui.Gui) error {
 
 	return nil
 }
+
+// VIEW FUNCTIONS
 
 func (a *App) NextView(g *gocui.Gui, v *gocui.View) error {
 	a.viewIndex = (a.viewIndex + 1) % len(VIEWS)
@@ -420,25 +429,31 @@ func (a *App) setViewByName(g *gocui.Gui, name string) error {
 	return errors.New("View not found")
 }
 
-func (a *App) SubmitRequest(g *gocui.Gui, _ *gocui.View) error {
-	rhv, _ := g.View(RESPONSE_HEADERS_VIEW)
-	rhv.Clear()
-	rbv, _ := g.View(RESPONSE_BODY_VIEW)
-	rbv.Clear()
+// REQUEST
 
-	go a.CreateAndProcessRequest(g)
+func (a *App) SubmitRequest(g *gocui.Gui, _ *gocui.View) error {
+	for _, name := range []string{
+		RESPONSE_INFO_VIEW,
+		RESPONSE_HEADERS_VIEW,
+		RESPONSE_BODY_VIEW,
+	} {
+		v, _ := g.View(name)
+		v.Clear()
+	}
+
+	go a.createAndProcessRequest(g)
 
 	return nil
 }
 
-func (a *App) CreateAndProcessRequest(g *gocui.Gui) {
+func (a *App) createAndProcessRequest(g *gocui.Gui) {
 	defer func() {
 		if r := recover(); r != nil {
 			printResponseInfo(g, r)
 		}
 	}()
 
-	displayInfo(g, "Sending request..")
+	a.displayRequestInfo(g)
 	defer g.DeleteView(POPUP_VIEW)
 
 	var r *Request = &Request{}
@@ -499,23 +514,11 @@ func (a *App) CreateAndProcessRequest(g *gocui.Gui) {
 	a.getAndPrintResponseBody(g)
 }
 
-func displayInfo(g *gocui.Gui, msg string) {
-	pos := VIEW_POSITIONS[POPUP_VIEW]
-	pos.x0.abs = -len(msg)/2 - 1
-	pos.x1.abs = len(msg)/2 + 1
-	VIEW_POSITIONS[POPUP_VIEW] = pos
-
-	p := VIEW_PROPERTIES[POPUP_VIEW]
-	p.text = msg
-	VIEW_PROPERTIES[POPUP_VIEW] = p
-
-	if v, err := setView(g, POPUP_VIEW); err != nil {
-		if err != gocui.ErrUnknownView {
-			return
-		}
-		setViewProperties(v, POPUP_VIEW)
-		g.SetViewOnTop(POPUP_VIEW)
-	}
+func (a *App) displayRequestInfo(g *gocui.Gui) {
+	msg := "Sending request..."
+	v, _ := a.CreatePopupView(POPUP_VIEW, len(msg)+2, 1, g)
+	v.Title = VIEW_PROPERTIES[POPUP_VIEW].title
+	fmt.Fprintln(v, msg)
 }
 
 func getUrlFromString(urlString string) *url.URL {
@@ -725,71 +728,7 @@ func formatJson(text []byte) []byte {
 	return text
 }
 
-func parseKey(k string) (interface{}, gocui.Modifier, error) {
-	mod := gocui.ModNone
-	if strings.Index(k, "Alt") == 0 {
-		mod = gocui.ModAlt
-		k = k[3:]
-	}
-	switch len(k) {
-	case 0:
-		return 0, 0, errors.New("Empty key string")
-	case 1:
-		if mod != gocui.ModNone {
-			k = strings.ToLower(k)
-		}
-		return rune(k[0]), mod, nil
-	}
-
-	key, found := KEYS[k]
-	if !found {
-		return 0, 0, fmt.Errorf("Unknown key: %v", k)
-	}
-	return key, mod, nil
-}
-
-func (a *App) setKey(g *gocui.Gui, keyStr, commandStr, viewName string) error {
-	if commandStr == "" {
-		return nil
-	}
-	key, mod, err := parseKey(keyStr)
-	if err != nil {
-		return err
-	}
-	commandParts := strings.SplitN(commandStr, " ", 2)
-	command := commandParts[0]
-	var commandArgs string
-	if len(commandParts) == 2 {
-		commandArgs = commandParts[1]
-	}
-	keyFnGen, found := COMMANDS[command]
-	if !found {
-		return fmt.Errorf("Unknown command: %v", command)
-	}
-	keyFn := keyFnGen(commandArgs, a)
-	if err := g.SetKeybinding(viewName, key, mod, keyFn); err != nil {
-		return fmt.Errorf("Failed to set key '%v': %v", keyStr, err)
-	}
-	return nil
-}
-
-func (a *App) printViewKeyBindings(v io.Writer, viewName string) {
-	keys, found := a.config.Keys[viewName]
-	if !found {
-		return
-	}
-	mk := make([]string, len(keys))
-	i := 0
-	for k := range keys {
-		mk[i] = k
-		i++
-	}
-	sort.Strings(mk)
-	fmt.Fprintf(v, "\n %v\n", viewName)
-	for _, key := range mk {
-		fmt.Fprintf(v, "  %-15v %v\n", key, keys[key])
-	}
-}
+// KEY BINDINGS
 
 func (a *App) SetKeys(g *gocui.Gui) error {
 	// load config key bindings
@@ -943,6 +882,74 @@ func (a *App) SetKeys(g *gocui.Gui) error {
 	return nil
 }
 
+func (a *App) setKey(g *gocui.Gui, keyStr, commandStr, viewName string) error {
+	if commandStr == "" {
+		return nil
+	}
+	key, mod, err := parseKey(keyStr)
+	if err != nil {
+		return err
+	}
+	commandParts := strings.SplitN(commandStr, " ", 2)
+	command := commandParts[0]
+	var commandArgs string
+	if len(commandParts) == 2 {
+		commandArgs = commandParts[1]
+	}
+	keyFnGen, found := COMMANDS[command]
+	if !found {
+		return fmt.Errorf("Unknown command: %v", command)
+	}
+	keyFn := keyFnGen(commandArgs, a)
+	if err := g.SetKeybinding(viewName, key, mod, keyFn); err != nil {
+		return fmt.Errorf("Failed to set key '%v': %v", keyStr, err)
+	}
+	return nil
+}
+
+func parseKey(k string) (interface{}, gocui.Modifier, error) {
+	mod := gocui.ModNone
+	if strings.Index(k, "Alt") == 0 {
+		mod = gocui.ModAlt
+		k = k[3:]
+	}
+	switch len(k) {
+	case 0:
+		return 0, 0, errors.New("Empty key string")
+	case 1:
+		if mod != gocui.ModNone {
+			k = strings.ToLower(k)
+		}
+		return rune(k[0]), mod, nil
+	}
+
+	key, found := KEYS[k]
+	if !found {
+		return 0, 0, fmt.Errorf("Unknown key: %v", k)
+	}
+	return key, mod, nil
+}
+
+func (a *App) printViewKeyBindings(v io.Writer, viewName string) {
+	keys, found := a.config.Keys[viewName]
+	if !found {
+		return
+	}
+	mk := make([]string, len(keys))
+	i := 0
+	for k := range keys {
+		mk[i] = k
+		i++
+	}
+	sort.Strings(mk)
+	fmt.Fprintf(v, "\n %v\n", viewName)
+	for _, key := range mk {
+		fmt.Fprintf(v, "  %-15v %v\n", key, keys[key])
+	}
+}
+
+// POPUP VIEWS
+
 func (a *App) closePopup(g *gocui.Gui, viewName string) {
 	_, err := g.View(viewName)
 	if err == nil {
@@ -953,7 +960,6 @@ func (a *App) closePopup(g *gocui.Gui, viewName string) {
 	}
 }
 
-// CreatePopupView create a popup like view
 func (a *App) CreatePopupView(name string, width, height int, g *gocui.Gui) (v *gocui.View, err error) {
 	// Remove any concurrent popup
 	a.closePopup(g, a.currentPopup)
@@ -1103,6 +1109,8 @@ func (a *App) restoreRequest(g *gocui.Gui, idx int) {
 	a.getAndPrintResponseBody(g)
 
 }
+
+// INITIALIZATION
 
 func (a *App) LoadConfig(configPath string) error {
 	if configPath == "" {
@@ -1262,26 +1270,7 @@ func setViewTextAndCursor(v *gocui.View, s string) {
 	v.SetCursor(len(s), 0)
 }
 
-func help() {
-	fmt.Println(`wuzz - Interactive cli tool for HTTP inspection
-
-Usage: wuzz [-H|--header HEADER]... [-d|--data|--data-binary DATA] [-X|--request METHOD] [-t|--timeout MSECS] [URL]
-
-Other command line options:
-  -c, --config PATH   Specify custom configuration file
-  -h, --help          Show this
-  -v, --version       Display version number
-
-Key bindings:
-  ctrl+r              Send request
-  ctrl+s              Save response
-  tab, ctrl+j         Next window
-  shift+tab, ctrl+k   Previous window
-  ctrl+h, alt+h       Show history
-  pageUp              Scroll up the current window
-  pageDown            Scroll down the current window`,
-	)
-}
+// MAIN
 
 func main() {
 	configPath := ""
@@ -1289,7 +1278,7 @@ func main() {
 	for i, arg := range os.Args {
 		switch arg {
 		case "-h", "--help":
-			help()
+			fmt.Println(config.HelpText)
 			return
 		case "-v", "--version":
 			fmt.Printf("wuzz %v\n", VERSION)
