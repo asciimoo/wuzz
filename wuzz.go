@@ -134,7 +134,7 @@ type viewProperties struct {
 	frame    bool
 	editable bool
 	wrap     bool
-	editor   gocui.Editor
+	editor   *gocui.Editor
 	text     string
 }
 
@@ -144,7 +144,7 @@ var VIEW_PROPERTIES = map[string]viewProperties{
 		frame:    true,
 		editable: true,
 		wrap:     false,
-		editor:   &singleLineEditor{&defaultEditor},
+		editor:   &singleLineEditor,
 	},
 	URL_PARAMS_VIEW: {
 		title:    "URL params",
@@ -158,7 +158,7 @@ var VIEW_PROPERTIES = map[string]viewProperties{
 		frame:    true,
 		editable: true,
 		wrap:     false,
-		editor:   &singleLineEditor{&defaultEditor},
+		editor:   &singleLineEditor,
 		text:     DEFAULT_METHOD,
 	},
 	REQUEST_DATA_VIEW: {
@@ -180,35 +180,34 @@ var VIEW_PROPERTIES = map[string]viewProperties{
 		frame:    true,
 		editable: true,
 		wrap:     true,
-		editor:   nil, // should be set using a.getViewEditor(g)
+		editor:   &emptyEditor,
 	},
 	RESPONSE_HEADERS_VIEW: {
 		title:    "Response headers",
 		frame:    true,
 		editable: true,
 		wrap:     true,
-		editor:   nil, // should be set using a.getViewEditor(g)
+		editor:   &emptyEditor,
 	},
 	RESPONSE_BODY_VIEW: {
 		title:    "Response body",
 		frame:    true,
 		editable: true,
 		wrap:     true,
-		editor:   nil, // should be set using a.getViewEditor(g)
+		editor:   &emptyEditor,
 	},
 	SEARCH_VIEW: {
 		title:    "",
 		frame:    false,
 		editable: true,
 		wrap:     false,
-		editor:   &singleLineEditor{&SearchEditor{&defaultEditor}},
+		editor:   &searchEditor,
 	},
 	SEARCH_PROMPT_VIEW: {
 		title:    "",
 		frame:    false,
 		editable: false,
 		wrap:     false,
-		editor:   nil,
 		text:     SEARCH_PROMPT,
 	},
 	ERROR_VIEW: {
@@ -216,14 +215,12 @@ var VIEW_PROPERTIES = map[string]viewProperties{
 		frame:    true,
 		editable: false,
 		wrap:     false,
-		editor:   nil,
 	},
 	POPUP_VIEW: {
 		title:    "Info",
 		frame:    true,
 		editable: false,
 		wrap:     false,
-		editor:   nil,
 	},
 	HISTORY_VIEW: {
 		title: "History",
@@ -272,8 +269,6 @@ var VIEWS = []string{
 	RESPONSE_BODY_VIEW,
 }
 
-var defaultEditor ViewEditor
-
 const (
 	MIN_WIDTH  = 60
 	MIN_HEIGHT = 20
@@ -298,88 +293,126 @@ type App struct {
 	config       *config.Config
 }
 
-type ViewEditor struct {
-	app           *App
-	g             *gocui.Gui
-	backTabEscape bool
-	origEditor    gocui.Editor
+// Acts as an editor but does nothing
+type EmptyEditor struct {
+	// (!) Deliberately left empty
 }
 
-type SearchEditor struct {
-	wuzzEditor *ViewEditor
+func (e EmptyEditor) Edit(v *gocui.View, key gocui.Key, ch rune, mod gocui.Modifier) {
+	// (!) Deliberately left empty
 }
 
-// The singleLineEditor removes multi lines capabilities
-type singleLineEditor struct {
-	wuzzEditor gocui.Editor
+// Handles BackTab (\033[Z) sequence
+type BackTabEditor struct {
+	editor                      gocui.Editor
+	goBack                      func()
+	waitingForSecondBackTabRune bool
 }
 
-func init() {
-	TRANSPORT.DisableCompression = true
-	CLIENT.Transport = TRANSPORT
-}
-
-// Editor functions
-
-func (e *ViewEditor) Edit(v *gocui.View, key gocui.Key, ch rune, mod gocui.Modifier) {
-	// handle back-tab (\033[Z) sequence
-	if e.backTabEscape {
+func (e *BackTabEditor) Edit(v *gocui.View, key gocui.Key, ch rune, mod gocui.Modifier) {
+	if e.waitingForSecondBackTabRune {
 		if ch == 'Z' {
-			e.app.PrevView(e.g, nil)
-			e.backTabEscape = false
+			e.goBack()
+			e.waitingForSecondBackTabRune = false
 			return
 		} else {
-			e.origEditor.Edit(v, 0, '[', gocui.ModAlt)
+			e.editor.Edit(v, 0, '[', gocui.ModAlt)
 		}
 	}
+
 	if ch == '[' && mod == gocui.ModAlt {
-		e.backTabEscape = true
-		return
+		e.waitingForSecondBackTabRune = true
+	} else {
+		e.editor.Edit(v, key, ch, mod)
 	}
-
-	e.origEditor.Edit(v, key, ch, mod)
 }
 
-func (e *SearchEditor) Edit(v *gocui.View, key gocui.Key, ch rune, mod gocui.Modifier) {
-	e.wuzzEditor.Edit(v, key, ch, mod)
-	e.wuzzEditor.app.getAndPrintResponseBody(e.wuzzEditor.g)
+// Calls search function
+type SearchEditor struct {
+	editor gocui.Editor
+	search func()
 }
 
-// The singleLineEditor removes multi lines capabilities
-func (e singleLineEditor) Edit(v *gocui.View, key gocui.Key, ch rune, mod gocui.Modifier) {
+func (e SearchEditor) Edit(v *gocui.View, key gocui.Key, ch rune, mod gocui.Modifier) {
+	e.editor.Edit(v, key, ch, mod)
+	e.search()
+}
+
+// Adds home and end buttons functionality
+type HomeEndEditor struct {
+	editor gocui.Editor
+}
+
+func (e HomeEndEditor) Edit(v *gocui.View, key gocui.Key, ch rune, mod gocui.Modifier) {
+	switch key {
+	case gocui.KeyHome:
+		v.SetCursor(0, 0)
+	case gocui.KeyEnd:
+		v.SetCursor(len(v.Buffer())-1, 0)
+	default:
+		e.editor.Edit(v, key, ch, mod)
+	}
+}
+
+// Removes multi lines capabilities
+type SingleLineEditor struct {
+	editor gocui.Editor
+}
+
+func (e SingleLineEditor) Edit(v *gocui.View, key gocui.Key, ch rune, mod gocui.Modifier) {
 	switch {
 	case (ch != 0 || key == gocui.KeySpace) && mod == 0:
-		e.wuzzEditor.Edit(v, key, ch, mod)
+		e.editor.Edit(v, key, ch, mod)
 		// At the end of the line the default gocui editor adds a whitespace
 		// Force him to remove
-		ox, _ := v.Cursor()
-		if ox > 1 && ox >= len(v.Buffer())-2 {
+		o, _ := v.Cursor()
+		if o > 1 && o >= len(v.Buffer())-2 {
 			v.EditDelete(false)
 		}
 		return
+	case key == gocui.KeyArrowUp:
+		key = gocui.KeyHome
+	case key == gocui.KeyArrowDown:
+		key = gocui.KeyEnd
 	case key == gocui.KeyEnter:
 		return
 	case key == gocui.KeyArrowRight:
-		ox, _ := v.Cursor()
-		if ox >= len(v.Buffer())-1 {
+		if x, _ := v.Cursor(); x > len(v.Buffer()) {
 			return
 		}
-	case key == gocui.KeyHome || key == gocui.KeyArrowUp:
-		v.SetCursor(0, 0)
-		return
-	case key == gocui.KeyEnd || key == gocui.KeyArrowDown:
-		v.SetCursor(len(v.Buffer())-1, 0)
-		return
 	}
-	e.wuzzEditor.Edit(v, key, ch, mod)
+
+	e.editor.Edit(v, key, ch, mod)
 }
 
-//
+var defaultEditor, singleLineEditor, searchEditor, emptyEditor gocui.Editor
 
-func (a *App) getResponseViewEditor(g *gocui.Gui) gocui.Editor {
-	return &ViewEditor{a, g, false, gocui.EditorFunc(func(v *gocui.View, key gocui.Key, ch rune, mod gocui.Modifier) {
-		return
-	})}
+func (a *App) getPrevViewFunc(g *gocui.Gui) func() {
+	return func() {
+		a.PrevView(g, nil)
+	}
+}
+
+func (a *App) getSearchFun(g *gocui.Gui) func() {
+	return func() {
+		a.getAndPrintResponseBody(g)
+	}
+}
+
+func (a *App) initiateEditors(g *gocui.Gui) {
+	defaultEditor = &BackTabEditor{
+		HomeEndEditor{gocui.DefaultEditor},
+		a.getPrevViewFunc(g),
+		false}
+	singleLineEditor = SingleLineEditor{
+		defaultEditor}
+	searchEditor = SearchEditor{
+		singleLineEditor,
+		a.getSearchFun(g)}
+	emptyEditor = &BackTabEditor{
+		EmptyEditor{},
+		a.getPrevViewFunc(g),
+		false}
 }
 
 func (p position) getCoordinate(max int) int {
@@ -401,7 +434,9 @@ func setViewProperties(v *gocui.View, name string) {
 	v.Frame = VIEW_PROPERTIES[name].frame
 	v.Editable = VIEW_PROPERTIES[name].editable
 	v.Wrap = VIEW_PROPERTIES[name].wrap
-	v.Editor = VIEW_PROPERTIES[name].editor
+	if VIEW_PROPERTIES[name].editor != nil {
+		v.Editor = *VIEW_PROPERTIES[name].editor
+	}
 	setViewTextAndCursor(v, VIEW_PROPERTIES[name].text)
 }
 
@@ -421,12 +456,6 @@ func (a *App) Layout(g *gocui.Gui) error {
 			g.DeleteView(ERROR_VIEW)
 			g.Cursor = true
 			a.setView(g)
-		}
-
-		for _, name := range []string{RESPONSE_INFO_VIEW, RESPONSE_HEADERS_VIEW, RESPONSE_BODY_VIEW} {
-			vp := VIEW_PROPERTIES[name]
-			vp.editor = a.getResponseViewEditor(g)
-			VIEW_PROPERTIES[name] = vp
 		}
 
 		p := VIEW_PROPERTIES[URL_VIEW]
@@ -701,22 +730,18 @@ func printResponseHeaders(g *gocui.Gui, headersString string) {
 }
 
 func (a *App) getAndPrintResponseBody(g *gocui.Gui) {
-	title, body, shouldSetOrigin := a.getResponseBody(g)
-	printResponseBody(g, title, body, shouldSetOrigin)
-}
-
-func (a *App) getResponseBody(g *gocui.Gui) (title, body string, shouldSetOrigin bool) {
 	if len(a.history) == 0 {
 		return
 	}
 	req := a.history[a.historyIndex]
 
-	return getResponseBody(
+	title, body, shouldSetOrigin := getResponseBody(
 		getViewValue(g, SEARCH_VIEW),
 		req.RawResponseBody,
 		req.ContentType,
 		a.config.General,
 	)
+	printResponseBody(g, title, body, shouldSetOrigin)
 }
 
 func getResponseBody(
@@ -1379,8 +1404,7 @@ func main() {
 
 	app := &App{history: make([]*Request, 0, 31)}
 
-	// overwrite default editor
-	defaultEditor = ViewEditor{app, g, false, gocui.DefaultEditor}
+	app.initiateEditors(g)
 
 	initApp(app, g)
 
