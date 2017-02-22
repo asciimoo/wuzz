@@ -228,6 +228,11 @@ var METHODS = []string{
 	http.MethodHead,
 }
 
+var CONTENT_TYPES = map[string]string{
+	"json": "application/json",
+	"form": "application/x-www-form-urlencoded",
+}
+
 const DEFAULT_METHOD = http.MethodGet
 
 var CLIENT = &http.Client{
@@ -1107,12 +1112,13 @@ func (a *App) ParseArgs(g *gocui.Gui, args []string) error {
 	vheader.Clear()
 	vget, _ := g.View(URL_PARAMS_VIEW)
 	vget.Clear()
-	add_content_type := false
+	content_type := ""
 	set_data := false
 	set_method := false
 	set_binary_data := false
 	arg_index := 1
 	args_len := len(args)
+	accept_types := make([]string, 0, 8)
 	for arg_index < args_len {
 		arg := args[arg_index]
 		switch arg {
@@ -1135,10 +1141,22 @@ func (a *App) ParseArgs(g *gocui.Gui, args []string) error {
 			data := args[arg_index]
 			if !set_binary_data {
 				data, _ = url.QueryUnescape(data)
-				add_content_type = true
+				content_type = "form"
 			}
 			vdata, _ := g.View(REQUEST_DATA_VIEW)
 			setViewTextAndCursor(vdata, data)
+		case "-j", "--json":
+			if arg_index == args_len-1 {
+				return errors.New("No POST/PUT/PATCH value specified")
+			}
+
+			arg_index += 1
+			json_str := args[arg_index]
+			content_type = "json"
+			accept_types = append(accept_types, CONTENT_TYPES["json"])
+			set_data = true
+			vdata, _ := g.View(REQUEST_DATA_VIEW)
+			setViewTextAndCursor(vdata, json_str)
 		case "-X", "--request":
 			if arg_index == args_len-1 {
 				return errors.New("No HTTP method specified")
@@ -1146,8 +1164,8 @@ func (a *App) ParseArgs(g *gocui.Gui, args []string) error {
 			arg_index++
 			set_method = true
 			method := args[arg_index]
-			if method == http.MethodPost || method == http.MethodPut {
-				add_content_type = true
+			if content_type == "" && (method == http.MethodPost || method == http.MethodPut || method == http.MethodPatch) {
+				content_type = "form"
 			}
 			vmethod, _ := g.View(REQUEST_METHOD_VIEW)
 			setViewTextAndCursor(vmethod, method)
@@ -1196,10 +1214,31 @@ func (a *App) ParseArgs(g *gocui.Gui, args []string) error {
 		setViewTextAndCursor(vmethod, http.MethodPost)
 	}
 
-	if !set_binary_data && add_content_type && strings.Index(getViewValue(g, REQUEST_HEADERS_VIEW), "Content-Type") == -1 {
-		setViewTextAndCursor(vheader, "Content-Type: application/x-www-form-urlencoded")
+	if !set_binary_data && content_type != "" && !a.hasHeader(g, "Content-Type") {
+		fmt.Fprintf(vheader, "Content-Type: %v\n", CONTENT_TYPES[content_type])
 	}
+
+	if len(accept_types) > 0 && !a.hasHeader(g, "Accept") {
+		fmt.Fprintf(vheader, "Accept: %v\n", strings.Join(accept_types, ","))
+	}
+
 	return nil
+}
+
+func (a *App) hasHeader(g *gocui.Gui, h string) bool {
+	for _, header := range strings.Split(getViewValue(g, REQUEST_HEADERS_VIEW), "\n") {
+		if header == "" {
+			continue
+		}
+		header_parts := strings.SplitN(header, ": ", 2)
+		if len(header_parts) != 2 {
+			continue
+		}
+		if header_parts[0] == h {
+			return true
+		}
+	}
+	return false
 }
 
 // Apply startup config values. This is run after a.ParseArgs, so that
@@ -1243,6 +1282,7 @@ Usage: wuzz [-H|--header HEADER]... [-d|--data|--data-binary DATA] [-X|--request
 
 Other command line options:
   -c, --config PATH   Specify custom configuration file
+  -j, --json JSON     Add JSON request data and set related request headers
   -h, --help          Show this
   -v, --version       Display version number
 
