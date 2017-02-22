@@ -44,6 +44,7 @@ var DefaultKeys = map[string]map[string]string{
 		"CtrlC": "quit",
 		"CtrlS": "save",
 		"CtrlD": "deleteLine",
+		"CtrlW": "deleteWord",
 		"Tab":   "nextView",
 		"CtrlJ": "nextView",
 		"CtrlK": "prevView",

@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"strings"
+	"unicode"
 
 	"github.com/jroimartin/gocui"
 )
@@ -47,6 +48,9 @@ var COMMANDS map[string]func(string, *App) CommandFunc = map[string]func(string,
 	},
 	"deleteLine": func(_ string, _ *App) CommandFunc {
 		return deleteLine
+	},
+	"deleteWord": func(_ string, _ *App) CommandFunc {
+		return deleteWord
 	},
 }
 
@@ -103,6 +107,45 @@ func deleteLine(_ *gocui.Gui, v *gocui.View) error {
 	}
 	v.SetCursor(0, currentLine)
 	return nil
+}
+
+func deleteWord(_ *gocui.Gui, v *gocui.View) error {
+	cX, cY := v.Cursor()
+	oX, _ := v.Origin()
+	cX = cX - 1 + oX
+	line, err := v.Line(cY)
+	if err != nil || line == "" || cX <= 0 {
+		return nil
+	}
+	if cX >= len(line) {
+		cX = len(line) - 1
+	}
+	origCharCateg := getCharCategory(rune(line[cX]))
+	v.EditDelete(true)
+	cX -= 1
+	for cX >= 0 {
+		c := rune(line[cX])
+		if origCharCateg != getCharCategory(c) {
+			break
+		}
+		v.EditDelete(true)
+		cX -= 1
+	}
+	return nil
+}
+
+func getCharCategory(chr rune) int {
+	switch {
+	case unicode.IsDigit(chr):
+		return 0
+	case unicode.IsLetter(chr):
+		return 1
+	case unicode.IsSpace(chr):
+		return 2
+	case unicode.IsPunct(chr):
+		return 3
+	}
+	return int(chr)
 }
 
 func quit(g *gocui.Gui, v *gocui.View) error {
