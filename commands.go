@@ -113,7 +113,7 @@ func deleteWord(_ *gocui.Gui, v *gocui.View) error {
 	oX, _ := v.Origin()
 	cX = cX - 1 + oX
 	line, err := v.Line(cY)
-	if err != nil || line == "" || cX <= 0 {
+	if err != nil || line == "" || cX < 0 {
 		return nil
 	}
 	if cX >= len(line) {
