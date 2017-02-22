@@ -102,10 +102,9 @@ func deleteLine(_ *gocui.Gui, v *gocui.View) error {
 	if currentLine > 0 {
 		fmt.Fprintln(v, strings.Join(viewLines[:currentLine], "\n"))
 	}
-	if currentLine < len(viewLines) {
-		fmt.Fprint(v, strings.Join(viewLines[currentLine+1:], "\n"))
-	}
+	fmt.Fprint(v, strings.Join(viewLines[currentLine+1:], "\n"))
 	v.SetCursor(0, currentLine)
+	v.SetOrigin(0, oY)
 	return nil
 }
 
