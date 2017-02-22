@@ -1,6 +1,9 @@
 package main
 
 import (
+	"fmt"
+	"strings"
+
 	"github.com/jroimartin/gocui"
 )
 
@@ -42,6 +45,9 @@ var COMMANDS map[string]func(string, *App) CommandFunc = map[string]func(string,
 	"pageUp": func(_ string, _ *App) CommandFunc {
 		return pageUp
 	},
+	"deleteLine": func(_ string, _ *App) CommandFunc {
+		return deleteLine
+	},
 }
 
 func scrollView(v *gocui.View, dy int) error {
@@ -74,6 +80,28 @@ func pageUp(_ *gocui.Gui, v *gocui.View) error {
 func pageDown(_ *gocui.Gui, v *gocui.View) error {
 	_, height := v.Size()
 	scrollView(v, height*2/3)
+	return nil
+}
+
+func deleteLine(_ *gocui.Gui, v *gocui.View) error {
+	if !v.Editable {
+		return nil
+	}
+	_, curY := v.Cursor()
+	_, oY := v.Origin()
+	currentLine := curY + oY
+	viewLines := strings.Split(strings.TrimSpace(v.Buffer()), "\n")
+	if currentLine >= len(viewLines) {
+		return nil
+	}
+	v.Clear()
+	if currentLine > 0 {
+		fmt.Fprintln(v, strings.Join(viewLines[:currentLine], "\n"))
+	}
+	if currentLine < len(viewLines) {
+		fmt.Fprint(v, strings.Join(viewLines[currentLine+1:], "\n"))
+	}
+	v.SetCursor(0, currentLine)
 	return nil
 }
 
