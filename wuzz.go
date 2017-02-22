@@ -350,9 +350,16 @@ func (e singleLineEditor) Edit(v *gocui.View, key gocui.Key, ch rune, mod gocui.
 		}
 	case key == gocui.KeyHome || key == gocui.KeyArrowUp:
 		v.SetCursor(0, 0)
+		v.SetOrigin(0, 0)
 		return
 	case key == gocui.KeyEnd || key == gocui.KeyArrowDown:
-		v.SetCursor(len(v.Buffer())-1, 0)
+		width, _ := v.Size()
+		lineWidth := len(v.Buffer()) - 1
+		if lineWidth > width {
+			v.SetOrigin(lineWidth-width, 0)
+			lineWidth = width - 1
+		}
+		v.SetCursor(lineWidth, 0)
 		return
 	}
 	e.wuzzEditor.Edit(v, key, ch, mod)
