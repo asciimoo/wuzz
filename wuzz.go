@@ -9,6 +9,7 @@ import (
 	"io"
 	"io/ioutil"
 	"log"
+	"mime"
 	"net/http"
 	"net/url"
 	"os"
@@ -22,6 +23,7 @@ import (
 	"github.com/asciimoo/wuzz/config"
 
 	"crypto/tls"
+
 	"github.com/jroimartin/gocui"
 	"github.com/mattn/go-runewidth"
 	"github.com/nwidger/jsoncolor"
@@ -668,7 +670,9 @@ func (a *App) PrintBody(g *gocui.Gui) {
 
 		responseBody := req.RawResponseBody
 		// pretty-print json
-		if strings.Contains(req.ContentType, "json") && a.config.General.FormatJSON {
+		ctype, _, err := mime.ParseMediaType(req.ContentType)
+		if err == nil && a.config.General.FormatJSON &&
+			(ctype == CONTENT_TYPES["json"] || strings.HasSuffix(ctype, "+json")) {
 			formatter := jsoncolor.NewFormatter()
 			buf := bytes.NewBuffer(make([]byte, 0, len(req.RawResponseBody)))
 			err := formatter.Format(buf, req.RawResponseBody)
