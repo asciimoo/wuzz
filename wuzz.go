@@ -668,7 +668,7 @@ func (a *App) PrintBody(g *gocui.Gui) {
 
 		responseBody := req.RawResponseBody
 		// pretty-print json
-		if strings.Contains(req.ContentType, "application/json") && a.config.General.FormatJSON {
+		if strings.Contains(req.ContentType, "json") && a.config.General.FormatJSON {
 			formatter := jsoncolor.NewFormatter()
 			buf := bytes.NewBuffer(make([]byte, 0, len(req.RawResponseBody)))
 			err := formatter.Format(buf, req.RawResponseBody)
