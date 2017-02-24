@@ -1272,8 +1272,8 @@ Usage: wuzz [-H|--header HEADER]... [-d|--data|--data-binary DATA] [-X|--request
 
 Other command line options:
   -c, --config PATH   Specify custom configuration file
-  -j, --json JSON     Add JSON request data and set related request headers
   -h, --help          Show this
+  -j, --json JSON     Add JSON request data and set related request headers
   -k, --insecure      Allow insecure SSL certs
   -v, --version       Display version number
 
@@ -1282,7 +1282,7 @@ Key bindings:
   ctrl+s              Save response
   tab, ctrl+j         Next window
   shift+tab, ctrl+k   Previous window
-  ctrl+h, alt+h       Show history
+  alt+h               Show history
   pageUp              Scroll up the current window
   pageDown            Scroll down the current window`,
 	)
