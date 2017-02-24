@@ -1176,6 +1176,16 @@ func (a *App) ParseArgs(g *gocui.Gui, args []string) error {
 			}
 		case "-k", "--insecure":
 			a.config.General.Insecure = true
+		case "-x", "--proxy":
+			if arg_index == args_len-1 {
+				return errors.New("Missing proxy URL")
+			}
+			arg_index += 1
+			u, err := url.Parse(args[arg_index])
+			if err != nil {
+				return fmt.Errorf("Invalid proxy URL: %v", err)
+			}
+			TRANSPORT.Proxy = http.ProxyURL(u)
 		default:
 			u := args[arg_index]
 			if strings.Index(u, "http://") != 0 && strings.Index(u, "https://") != 0 {
@@ -1276,6 +1286,7 @@ Other command line options:
   -j, --json JSON     Add JSON request data and set related request headers
   -k, --insecure      Allow insecure SSL certs
   -v, --version       Display version number
+  -x, --proxy URL     Set HTTP proxy
 
 Key bindings:
   ctrl+r              Send request
