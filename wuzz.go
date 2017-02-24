@@ -1174,7 +1174,7 @@ func (a *App) ParseArgs(g *gocui.Gui, args []string) error {
 			if strings.Index(getViewValue(g, REQUEST_HEADERS_VIEW), "Accept-Encoding") == -1 {
 				fmt.Fprintln(vh, "Accept-Encoding: gzip, deflate")
 			}
-		case "--insecure":
+		case "-k", "--insecure":
 			a.config.General.Insecure = true
 		default:
 			u := args[arg_index]
@@ -1274,6 +1274,7 @@ Other command line options:
   -c, --config PATH   Specify custom configuration file
   -j, --json JSON     Add JSON request data and set related request headers
   -h, --help          Show this
+  -k, --insecure      Allow insecure SSL certs
   -v, --version       Display version number
 
 Key bindings:
