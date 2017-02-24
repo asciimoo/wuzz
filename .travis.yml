@@ -11,6 +11,7 @@ env:
 script:
   - test -z "$(gofmt -l ./)"
   - test -z "$(go vet -v ./...)"
+  - go test ./...
   - go build
 # after_success:
 #   # Publish as pre-release if it isn't a pull request

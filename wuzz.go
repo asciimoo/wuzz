@@ -3,13 +3,11 @@ package main
 import (
 	"bytes"
 	"compress/gzip"
-	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"log"
-	"mime"
 	"net/http"
 	"net/url"
 	"os"
@@ -21,12 +19,12 @@ import (
 	"time"
 
 	"github.com/asciimoo/wuzz/config"
+	"github.com/asciimoo/wuzz/formatter"
 
 	"crypto/tls"
 
 	"github.com/jroimartin/gocui"
 	"github.com/mattn/go-runewidth"
-	"github.com/nwidger/jsoncolor"
 )
 
 const VERSION = "0.2.0"
@@ -228,11 +226,6 @@ var METHODS = []string{
 	http.MethodTrace,
 	http.MethodConnect,
 	http.MethodHead,
-}
-
-var CONTENT_TYPES = map[string]string{
-	"json": "application/json",
-	"form": "application/x-www-form-urlencoded",
 }
 
 const DEFAULT_METHOD = http.MethodGet
@@ -668,28 +661,14 @@ func (a *App) PrintBody(g *gocui.Gui) {
 		vrb, _ := g.View(RESPONSE_BODY_VIEW)
 		vrb.Clear()
 
-		responseBody := req.RawResponseBody
-		// pretty-print json
-		ctype, _, err := mime.ParseMediaType(req.ContentType)
-		if err == nil && a.config.General.FormatJSON &&
-			(ctype == CONTENT_TYPES["json"] || strings.HasSuffix(ctype, "+json")) {
-			formatter := jsoncolor.NewFormatter()
-			buf := bytes.NewBuffer(make([]byte, 0, len(req.RawResponseBody)))
-			err := formatter.Format(buf, req.RawResponseBody)
-			if err == nil {
-				responseBody = buf.Bytes()
-			}
-		}
+		responseFormatter := formatter.New(a.config, req.ContentType)
+		vrb.Title = VIEW_PROPERTIES[vrb.Name()].title + " " + responseFormatter.Title()
 
-		is_binary := strings.Index(req.ContentType, "text") == -1 && strings.Index(req.ContentType, "application") == -1
-		search_text := getViewValue(g, SEARCH_VIEW)
-		if search_text == "" || is_binary {
-			vrb.Title = RESPONSE_BODY_VIEW
-			if is_binary {
-				vrb.Title += " [binary content]"
-				fmt.Fprint(vrb, hex.Dump(req.RawResponseBody))
-			} else {
-				vrb.Write(responseBody)
+		search_text := getViewValue(g, "search")
+		if search_text == "" || !responseFormatter.Searchable() {
+			err := responseFormatter.Format(vrb, req.RawResponseBody)
+			if err != nil {
+				return err
 			}
 			if _, err := vrb.Line(0); !a.config.General.PreserveScrollPosition || err != nil {
 				vrb.SetOrigin(0, 0)
@@ -1164,7 +1143,7 @@ func (a *App) ParseArgs(g *gocui.Gui, args []string) error {
 			arg_index += 1
 			json_str := args[arg_index]
 			content_type = "json"
-			accept_types = append(accept_types, CONTENT_TYPES["json"])
+			accept_types = append(accept_types, config.ContentTypes["json"])
 			set_data = true
 			vdata, _ := g.View(REQUEST_DATA_VIEW)
 			setViewTextAndCursor(vdata, json_str)
@@ -1226,7 +1205,7 @@ func (a *App) ParseArgs(g *gocui.Gui, args []string) error {
 	}
 
 	if !set_binary_data && content_type != "" && !a.hasHeader(g, "Content-Type") {
-		fmt.Fprintf(vheader, "Content-Type: %v\n", CONTENT_TYPES[content_type])
+		fmt.Fprintf(vheader, "Content-Type: %v\n", config.ContentTypes[content_type])
 	}
 
 	if len(accept_types) > 0 && !a.hasHeader(g, "Accept") {
