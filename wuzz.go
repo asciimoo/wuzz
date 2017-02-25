@@ -1117,6 +1117,11 @@ func (a *App) SetKeys(g *gocui.Gui) error {
 		return nil
 	})
 
+	g.SetKeybinding(SAVE_REQUEST_DIALOG_VIEW, gocui.KeyCtrlQ, gocui.ModNone, func(g *gocui.Gui, v *gocui.View) error {
+		a.closePopup(g, SAVE_REQUEST_DIALOG_VIEW)
+		return nil
+	})
+
 	g.SetKeybinding(SAVE_RESULT_VIEW, gocui.KeyEnter, gocui.ModNone, func(g *gocui.Gui, v *gocui.View) error {
 		a.closePopup(g, SAVE_RESULT_VIEW)
 		return nil
