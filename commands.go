@@ -14,8 +14,11 @@ var COMMANDS map[string]func(string, *App) CommandFunc = map[string]func(string,
 	"submit": func(_ string, a *App) CommandFunc {
 		return a.SubmitRequest
 	},
-	"save": func(_ string, a *App) CommandFunc {
-		return a.OpenSaveDialog
+	"saveResponse": func(_ string, a *App) CommandFunc {
+		return a.OpenSaveResponseDialog
+	},
+	"saveRequest": func(_ string, a *App) CommandFunc {
+		return a.OpenSaveRequestDialog
 	},
 	"history": func(_ string, a *App) CommandFunc {
 		return a.ToggleHistory
