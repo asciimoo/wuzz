@@ -427,9 +427,11 @@ func (a *App) Layout(g *gocui.Gui) error {
 		VIEW_PROPERTIES[name] = vp
 	}
 
-	p := VIEW_PROPERTIES[URL_VIEW]
-	p.text = a.config.General.DefaultURLScheme + "://"
-	VIEW_PROPERTIES[URL_VIEW] = p
+	if a.config.General.DefaultURLScheme != "" && !strings.HasSuffix(a.config.General.DefaultURLScheme, "://") {
+		p := VIEW_PROPERTIES[URL_VIEW]
+		p.text = a.config.General.DefaultURLScheme + "://"
+		VIEW_PROPERTIES[URL_VIEW] = p
+	}
 
 	for _, name := range []string{
 		URL_VIEW,
