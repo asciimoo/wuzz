@@ -313,6 +313,15 @@ func (e *ViewEditor) Edit(v *gocui.View, key gocui.Key, ch rune, mod gocui.Modif
 		return
 	}
 
+	// disable infinite down scroll
+	if key == gocui.KeyArrowDown && mod == gocui.ModNone {
+		_, cY := v.Cursor()
+		_, err := v.Line(cY)
+		if err != nil {
+			return
+		}
+	}
+
 	e.origEditor.Edit(v, key, ch, mod)
 }
 
