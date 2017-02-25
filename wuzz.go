@@ -1088,11 +1088,11 @@ func (a *App) SetKeys(g *gocui.Gui) error {
 
 		var requestMap map[string]string
 		requestMap = make(map[string]string)
-		requestMap["url"] = getViewValue(g, URL_VIEW)
-		requestMap["method"] = getViewValue(g, REQUEST_METHOD_VIEW)
-		requestMap["params"] = getViewValue(g, URL_PARAMS_VIEW)
-		requestMap["data"] = getViewValue(g, REQUEST_DATA_VIEW)
-		requestMap["headers"] = getViewValue(g, REQUEST_HEADERS_VIEW)
+		requestMap[URL_VIEW] = getViewValue(g, URL_VIEW)
+		requestMap[REQUEST_METHOD_VIEW] = getViewValue(g, REQUEST_METHOD_VIEW)
+		requestMap[URL_PARAMS_VIEW] = getViewValue(g, URL_PARAMS_VIEW)
+		requestMap[REQUEST_DATA_VIEW] = getViewValue(g, REQUEST_DATA_VIEW)
+		requestMap[REQUEST_HEADERS_VIEW] = getViewValue(g, REQUEST_HEADERS_VIEW)
 
 		requestJson, err := json.Marshal(requestMap)
 		if err != nil {
@@ -1501,31 +1501,31 @@ func (a *App) ParseArgs(g *gocui.Gui, args []string) error {
 			}
 
 			var v *gocui.View
-			url, exists := requestMap["url"]
+			url, exists := requestMap[URL_VIEW]
 			if exists {
 				v, _ = g.View(URL_VIEW)
 				setViewTextAndCursor(v, url)
 			}
 
-			method, exists := requestMap["method"]
+			method, exists := requestMap[REQUEST_METHOD_VIEW]
 			if exists {
 				v, _ = g.View(REQUEST_METHOD_VIEW)
 				setViewTextAndCursor(v, method)
 			}
 
-			params, exists := requestMap["params"]
+			params, exists := requestMap[URL_PARAMS_VIEW]
 			if exists {
 				v, _ = g.View(URL_PARAMS_VIEW)
 				setViewTextAndCursor(v, params)
 			}
 
-			data, exists := requestMap["data"]
+			data, exists := requestMap[REQUEST_DATA_VIEW]
 			if exists {
 				v, _ = g.View(REQUEST_DATA_VIEW)
 				setViewTextAndCursor(v, data)
 			}
 
-			headers, exists := requestMap["headers"]
+			headers, exists := requestMap[REQUEST_HEADERS_VIEW]
 			if exists {
 				v, _ = g.View(REQUEST_HEADERS_VIEW)
 				setViewTextAndCursor(v, headers)
