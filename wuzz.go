@@ -1190,6 +1190,31 @@ func (a *App) ParseArgs(g *gocui.Gui, args []string) error {
 			a.config.General.Insecure = true
 		case "-R", "--disable-redirects":
 			a.config.General.FollowRedirects = false
+		case "-T", "--tls":
+			if arg_index >= args_len-1 {
+				g.Close()
+				log.Fatal("Missing TLS version range: MIN,MAX")
+			}
+			arg_index++
+			arg := args[arg_index]
+			v := strings.Split(arg, ",")
+			min := v[0]
+			max := min
+			if len(v) > 1 {
+				max = v[1]
+			}
+			minV, minFound := tlsVersions[min]
+			if !minFound {
+				g.Close()
+				log.Fatal("Minimum TLS version not found: " + min)
+			}
+			maxV, maxFound := tlsVersions[max]
+			if !maxFound {
+				g.Close()
+				log.Fatal("Maximum TLS version not found: " + max)
+			}
+			a.config.General.TLSVersionMin = minV
+			a.config.General.TLSVersionMax = maxV
 		case "-x", "--proxy":
 			if arg_index == args_len-1 {
 				return errors.New("Missing proxy URL")
@@ -1270,7 +1295,11 @@ func (a *App) hasHeader(g *gocui.Gui, h string) bool {
 // args can override the provided config values
 func (a *App) InitConfig() {
 	CLIENT.Timeout = a.config.General.Timeout.Duration
-	TRANSPORT.TLSClientConfig = &tls.Config{InsecureSkipVerify: a.config.General.Insecure}
+	TRANSPORT.TLSClientConfig = &tls.Config{
+		InsecureSkipVerify: a.config.General.Insecure,
+		MinVersion:         a.config.General.TLSVersionMin,
+		MaxVersion:         a.config.General.TLSVersionMax,
+		}
 	if !a.config.General.FollowRedirects {
 		CLIENT.CheckRedirect = func(_ *http.Request, _ []*http.Request) error {
 			return http.ErrUseLastResponse
@@ -1316,6 +1345,9 @@ Other command line options:
   -j, --json JSON          Add JSON request data and set related request headers
   -k, --insecure           Allow insecure SSL certs
   -R, --disable-redirects  Do not follow HTTP redirects
+  -T, --tls MIN,MAX        Restrict allowed TLS versions (values: SSL3.0,TLS1.0,TLS1.1,TLS1.2)
+                           Examples: wuzz -k -T TLS1.1        (TLS1.1 only)
+		                     wuzz -k -T TLS1.0,TLS1.1 (from TLS1.0 up to TLS1.1)
   -v, --version            Display version number
   -x, --proxy URL          Set HTTP(S) or SOCKS5 proxy
 
@@ -1401,4 +1433,11 @@ func main() {
 	if err := g.MainLoop(); err != nil && err != gocui.ErrQuit {
 		log.Panicln(err)
 	}
+}
+
+var tlsVersions = map[string]uint16{
+	"SSL3.0": tls.VersionSSL30,
+	"TLS1.0": tls.VersionTLS10,
+	"TLS1.1": tls.VersionTLS11,
+	"TLS1.2": tls.VersionTLS12,
 }
