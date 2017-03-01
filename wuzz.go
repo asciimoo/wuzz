@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"compress/gzip"
+	"crypto/tls"
 	"errors"
 	"fmt"
 	"io"
@@ -22,8 +23,6 @@ import (
 
 	"github.com/asciimoo/wuzz/config"
 	"github.com/asciimoo/wuzz/formatter"
-
-	"crypto/tls"
 
 	"github.com/jroimartin/gocui"
 	"github.com/mattn/go-runewidth"
