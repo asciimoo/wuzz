@@ -18,6 +18,8 @@ import (
 	"strings"
 	"time"
 
+	"golang.org/x/net/proxy"
+
 	"github.com/asciimoo/wuzz/config"
 	"github.com/asciimoo/wuzz/formatter"
 
@@ -1196,7 +1198,18 @@ func (a *App) ParseArgs(g *gocui.Gui, args []string) error {
 			if err != nil {
 				return fmt.Errorf("Invalid proxy URL: %v", err)
 			}
-			TRANSPORT.Proxy = http.ProxyURL(u)
+			switch u.Scheme {
+			case "", "http", "https":
+				TRANSPORT.Proxy = http.ProxyURL(u)
+			case "socks", "socks5":
+				dialer, err := proxy.SOCKS5("tcp", u.Host, nil, proxy.Direct)
+				if err != nil {
+					return fmt.Errorf("Can't connect to proxy: %v", err)
+				}
+				TRANSPORT.Dial = dialer.Dial
+			default:
+				return errors.New("Unknown proxy protocol")
+			}
 		default:
 			u := args[arg_index]
 			if strings.Index(u, "http://") != 0 && strings.Index(u, "https://") != 0 {
@@ -1297,7 +1310,7 @@ Other command line options:
   -j, --json JSON     Add JSON request data and set related request headers
   -k, --insecure      Allow insecure SSL certs
   -v, --version       Display version number
-  -x, --proxy URL     Set HTTP proxy
+  -x, --proxy URL     Set HTTP(S) or SOCKS5 proxy
 
 Key bindings:
   ctrl+r              Send request
