@@ -1187,7 +1187,7 @@ func (a *App) ParseArgs(g *gocui.Gui, args []string) error {
 			if err != nil || timeout <= 0 {
 				return errors.New("Invalid timeout value")
 			}
-			a.config.General.Timeout = config.Duration{time.Duration(timeout) * time.Millisecond}
+			a.config.General.Timeout = config.Duration{Duration: time.Duration(timeout) * time.Millisecond}
 		case "--compressed":
 			vh, _ := g.View(REQUEST_HEADERS_VIEW)
 			if strings.Index(getViewValue(g, REQUEST_HEADERS_VIEW), "Accept-Encoding") == -1 {
@@ -1315,7 +1315,7 @@ func (a *App) InitConfig() {
 		InsecureSkipVerify: a.config.General.Insecure,
 		MinVersion:         a.config.General.TLSVersionMin,
 		MaxVersion:         a.config.General.TLSVersionMax,
-		}
+	}
 	if !a.config.General.FollowRedirects {
 		CLIENT.CheckRedirect = func(_ *http.Request, _ []*http.Request) error {
 			return http.ErrUseLastResponse
