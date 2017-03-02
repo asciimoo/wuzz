@@ -38,6 +38,7 @@ type GeneralOptions struct {
 	FormatJSON             bool
 	Insecure               bool
 	PreserveScrollPosition bool
+	FollowRedirects        bool
 	DefaultURLScheme       string
 }
 
@@ -94,6 +95,7 @@ var DefaultConfig = Config{
 		FormatJSON:             true,
 		Insecure:               false,
 		PreserveScrollPosition: true,
+		FollowRedirects:        true,
 		DefaultURLScheme:       "https",
 	},
 }

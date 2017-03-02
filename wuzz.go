@@ -1188,6 +1188,8 @@ func (a *App) ParseArgs(g *gocui.Gui, args []string) error {
 			}
 		case "-k", "--insecure":
 			a.config.General.Insecure = true
+		case "-R", "--disable-redirects":
+			a.config.General.FollowRedirects = false
 		case "-x", "--proxy":
 			if arg_index == args_len-1 {
 				return errors.New("Missing proxy URL")
@@ -1269,6 +1271,11 @@ func (a *App) hasHeader(g *gocui.Gui, h string) bool {
 func (a *App) InitConfig() {
 	CLIENT.Timeout = a.config.General.Timeout.Duration
 	TRANSPORT.TLSClientConfig = &tls.Config{InsecureSkipVerify: a.config.General.Insecure}
+	if !a.config.General.FollowRedirects {
+		CLIENT.CheckRedirect = func(_ *http.Request, _ []*http.Request) error {
+			return http.ErrUseLastResponse
+		}
+	}
 }
 
 func initApp(a *App, g *gocui.Gui) {
@@ -1304,12 +1311,13 @@ func help() {
 Usage: wuzz [-H|--header HEADER]... [-d|--data|--data-binary DATA] [-X|--request METHOD] [-t|--timeout MSECS] [URL]
 
 Other command line options:
-  -c, --config PATH   Specify custom configuration file
-  -h, --help          Show this
-  -j, --json JSON     Add JSON request data and set related request headers
-  -k, --insecure      Allow insecure SSL certs
-  -v, --version       Display version number
-  -x, --proxy URL     Set HTTP(S) or SOCKS5 proxy
+  -c, --config PATH        Specify custom configuration file
+  -h, --help               Show this
+  -j, --json JSON          Add JSON request data and set related request headers
+  -k, --insecure           Allow insecure SSL certs
+  -R, --disable-redirects  Do not follow HTTP redirects
+  -v, --version            Display version number
+  -x, --proxy URL          Set HTTP(S) or SOCKS5 proxy
 
 Key bindings:
   ctrl+r              Send request

@@ -5,6 +5,7 @@ defaultURLScheme = "https"
 formatJSON = true
 preserveScrollPosition = true
 insecure = false
+followRedirects = true
 
 # KEYBINDINGS
 [keys.global]
