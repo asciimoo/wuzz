@@ -1364,9 +1364,9 @@ Other command line options:
   -T, --tls MIN,MAX        Restrict allowed TLS versions (values: SSL3.0,TLS1.0,TLS1.1,TLS1.2)
                            Examples: wuzz -k -T TLS1.1        (TLS1.1 only)
 		                     wuzz -k -T TLS1.0,TLS1.1 (from TLS1.0 up to TLS1.1)
-  --tlsv1.0                Forces TLS TLS1.0 only
-  --tlsv1.1                Forces TLS TLS1.1 only
-  --tlsv1.2                Forces TLS TLS1.2 only
+  --tlsv1.0                Forces TLS1.0 only
+  --tlsv1.1                Forces TLS1.1 only
+  --tlsv1.2                Forces TLS1.2 only
   -1, --tlsv1              Forces TLS version 1.x (1.0, 1.1 or 1.2)
   -v, --version            Display version number
   -x, --proxy URL          Set HTTP(S) or SOCKS5 proxy
