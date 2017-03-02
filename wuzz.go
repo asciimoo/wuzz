@@ -249,6 +249,13 @@ var VIEWS = []string{
 	RESPONSE_BODY_VIEW,
 }
 
+var TLS_VERSIONS = map[string]uint16{
+	"SSL3.0": tls.VersionSSL30,
+	"TLS1.0": tls.VersionTLS10,
+	"TLS1.1": tls.VersionTLS11,
+	"TLS1.2": tls.VersionTLS12,
+}
+
 var defaultEditor ViewEditor
 
 const (
@@ -1190,10 +1197,21 @@ func (a *App) ParseArgs(g *gocui.Gui, args []string) error {
 			a.config.General.Insecure = true
 		case "-R", "--disable-redirects":
 			a.config.General.FollowRedirects = false
+		case "--tlsv1.0":
+			a.config.General.TLSVersionMin = tls.VersionTLS10
+			a.config.General.TLSVersionMax = tls.VersionTLS10
+		case "--tlsv1.1":
+			a.config.General.TLSVersionMin = tls.VersionTLS11
+			a.config.General.TLSVersionMax = tls.VersionTLS11
+		case "--tlsv1.2":
+			a.config.General.TLSVersionMin = tls.VersionTLS12
+			a.config.General.TLSVersionMax = tls.VersionTLS12
+		case "-1", "--tlsv1":
+			a.config.General.TLSVersionMin = tls.VersionTLS10
+			a.config.General.TLSVersionMax = tls.VersionTLS12
 		case "-T", "--tls":
 			if arg_index >= args_len-1 {
-				g.Close()
-				log.Fatal("Missing TLS version range: MIN,MAX")
+				return errors.New("Missing TLS version range: MIN,MAX")
 			}
 			arg_index++
 			arg := args[arg_index]
@@ -1203,15 +1221,13 @@ func (a *App) ParseArgs(g *gocui.Gui, args []string) error {
 			if len(v) > 1 {
 				max = v[1]
 			}
-			minV, minFound := tlsVersions[min]
+			minV, minFound := TLS_VERSIONS[min]
 			if !minFound {
-				g.Close()
-				log.Fatal("Minimum TLS version not found: " + min)
+				return errors.New("Minimum TLS version not found: " + min)
 			}
-			maxV, maxFound := tlsVersions[max]
+			maxV, maxFound := TLS_VERSIONS[max]
 			if !maxFound {
-				g.Close()
-				log.Fatal("Maximum TLS version not found: " + max)
+				return errors.New("Maximum TLS version not found: " + max)
 			}
 			a.config.General.TLSVersionMin = minV
 			a.config.General.TLSVersionMax = maxV
@@ -1348,6 +1364,10 @@ Other command line options:
   -T, --tls MIN,MAX        Restrict allowed TLS versions (values: SSL3.0,TLS1.0,TLS1.1,TLS1.2)
                            Examples: wuzz -k -T TLS1.1        (TLS1.1 only)
 		                     wuzz -k -T TLS1.0,TLS1.1 (from TLS1.0 up to TLS1.1)
+  --tlsv1.0                Forces TLS TLS1.0 only
+  --tlsv1.1                Forces TLS TLS1.1 only
+  --tlsv1.2                Forces TLS TLS1.2 only
+  -1, --tlsv1              Forces TLS version 1.x (1.0, 1.1 or 1.2)
   -v, --version            Display version number
   -x, --proxy URL          Set HTTP(S) or SOCKS5 proxy
 
@@ -1433,11 +1453,4 @@ func main() {
 	if err := g.MainLoop(); err != nil && err != gocui.ErrQuit {
 		log.Panicln(err)
 	}
-}
-
-var tlsVersions = map[string]uint16{
-	"SSL3.0": tls.VersionSSL30,
-	"TLS1.0": tls.VersionTLS10,
-	"TLS1.1": tls.VersionTLS11,
-	"TLS1.2": tls.VersionTLS12,
 }
