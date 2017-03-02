@@ -40,6 +40,8 @@ type GeneralOptions struct {
 	PreserveScrollPosition bool
 	FollowRedirects        bool
 	DefaultURLScheme       string
+	TLSVersionMin          uint16
+	TLSVersionMax          uint16
 }
 
 var defaultTimeoutDuration, _ = time.ParseDuration("1m")
