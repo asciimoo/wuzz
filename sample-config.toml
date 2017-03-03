@@ -1,32 +1,48 @@
 [general]
-
 timeout = "1m"
-defaultURLScheme = "https"
 formatJSON = true
-preserveScrollPosition = true
 insecure = false
+preserveScrollPosition = true
 followRedirects = true
+defaultURLScheme = "https"
 
 # KEYBINDINGS
 [keys.global]
-CtrlH = "submit"
-CtrlW = "save"
-CtrlN = "nextView"
-CtrlP = "prevView"
-AltEnter = "history"
-
-[keys.search]
-Tab = "focus url"
+CtrlR = "submit"
+CtrlC = "quit"
+CtrlS = "save"
+CtrlD = "deleteLine"
+CtrlW = "deleteWord"
+Tab = "nextView"
+CtrlJ = "nextView"
+CtrlK = "prevView"
+AltH = "history"
+F2 = "focus url"
+F3 = "focus get"
+F4 = "focus method"
+F5 = "focus data"
+F6 = "focus headers"
+F7 = "focus search"
+F8 = "focus response-headers"
+F9 = "focus response-body"
 
 [keys.url]
-Tab = "focus search"
-
-[keys.response-body]
-j = "scrollDown"
-k = "scrollUp"
-J = "pageDown"
-K = "pageUp"
+Enter = "submit"
 
 [keys.response-headers]
-j = "pageDown"
-k = "pageUp"
+ArrowUp = "scrollUp"
+ArrowDown = "scrollDown"
+PageUp = "pageUp"
+PageDown = "pageDown"
+
+[keys.response-body]
+ArrowUp = "scrollUp"
+ArrowDown = "scrollDown"
+PageUp = "pageUp"
+PageDown = "pageDown"
+
+[keys.help]
+ArrowUp = "scrollUp"
+ArrowDown = "scrollDown"
+PageUp = "pageUp"
+PageDown = "pageDown"
