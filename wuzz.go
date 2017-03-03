@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"compress/gzip"
 	"crypto/tls"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -12,6 +13,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"path/filepath"
 	"regexp"
 	"runtime"
 	"sort"
@@ -785,6 +787,7 @@ func (a *App) SubmitRequest(g *gocui.Gui, _ *gocui.View) error {
 		// add to history
 		a.history = append(a.history, r)
 		a.historyIndex = len(a.history) - 1
+		a.SaveHistory()
 
 		// render response
 		g.Execute(func(g *gocui.Gui) error {
@@ -1122,6 +1125,72 @@ func (a *App) CreatePopupView(name string, width, height int, g *gocui.Gui) (v *
 	v.SelFgColor = gocui.ColorYellow
 	a.currentPopup = name
 	return
+}
+
+func (a *App) SerializeHistory() ([]byte, error) {
+	return json.Marshal(a.history)
+}
+
+func (a *App) DeserializeHistory(input []byte) ([]*Request, error) {
+	history := []*Request{}
+	err := json.Unmarshal(input, &history)
+	return history, err
+}
+
+func (a *App) GetHistoryFile() (string, error) {
+	if a.config.Meta.ConfigLocation == "" {
+		return "", errors.New("There is no known config directory.")
+	}
+	dir := filepath.Dir(a.config.Meta.ConfigLocation)
+	histFile := filepath.Join(dir, "history.json")
+	return histFile, nil
+}
+
+func (a *App) SaveHistory() error {
+	if !a.config.General.PersistHistory {
+		return nil
+	}
+
+	histFile, err := a.GetHistoryFile()
+	if err != nil {
+		return err
+	}
+
+	serializedHistory, err := a.SerializeHistory()
+	if err != nil {
+		return err
+	}
+
+	err = ioutil.WriteFile(histFile, serializedHistory, 0644)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (a *App) LoadHistory() error {
+	if !a.config.General.PersistHistory {
+		return nil
+	}
+
+	histFile, err := a.GetHistoryFile()
+	if err != nil {
+		return err
+	}
+
+	histBytes, err := ioutil.ReadFile(histFile)
+	if err != nil {
+		return err
+	}
+
+	history, err := a.DeserializeHistory(histBytes)
+	if err != nil {
+		return err
+	}
+
+	a.history = history
+	return nil
 }
 
 func (a *App) ToggleHistory(g *gocui.Gui, _ *gocui.View) (err error) {
@@ -1602,6 +1671,15 @@ func main() {
 		g.Close()
 		fmt.Println("Error!", err)
 		os.Exit(1)
+	}
+
+	if app.config.General.PersistHistory {
+		err = app.LoadHistory()
+		if err != nil && !os.IsNotExist(err) {
+			g.Close()
+			fmt.Println("Error!", err)
+			os.Exit(1)
+		}
 	}
 
 	defer g.Close()

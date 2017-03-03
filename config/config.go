@@ -30,6 +30,7 @@ func (d *Duration) UnmarshalText(text []byte) error {
 
 type Config struct {
 	General GeneralOptions
+	Meta    MetaOptions
 	Keys    map[string]map[string]string
 }
 
@@ -39,9 +40,14 @@ type GeneralOptions struct {
 	Insecure               bool
 	PreserveScrollPosition bool
 	FollowRedirects        bool
+	PersistHistory         bool
 	DefaultURLScheme       string
 	TLSVersionMin          uint16
 	TLSVersionMax          uint16
+}
+
+type MetaOptions struct {
+	ConfigLocation string
 }
 
 var defaultTimeoutDuration, _ = time.ParseDuration("1m")
@@ -98,7 +104,11 @@ var DefaultConfig = Config{
 		Insecure:               false,
 		PreserveScrollPosition: true,
 		FollowRedirects:        true,
+		PersistHistory:         false,
 		DefaultURLScheme:       "https",
+	},
+	Meta: MetaOptions{
+		ConfigLocation: "",
 	},
 }
 
@@ -113,6 +123,8 @@ func LoadConfig(configFile string) (*Config, error) {
 	if _, err := toml.DecodeFile(configFile, &conf); err != nil {
 		return nil, err
 	}
+
+	conf.Meta.ConfigLocation = configFile
 
 	if conf.Keys == nil {
 		conf.Keys = DefaultKeys
