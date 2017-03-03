@@ -418,21 +418,24 @@ func (e *AutocompleteEditor) Edit(v *gocui.View, key gocui.Key, ch rune, mod goc
 	e.currentCompletions = completions
 
 	cx, cy = v.Cursor()
-	maxX, maxY := e.wuzzEditor.g.Size()
 	sx, _ := v.Size()
-	pos := VIEW_POSITIONS[v.Name()]
-	ox := pos.x0.getCoordinate(maxX)
-	oy := pos.y0.getCoordinate(maxY)
+	ox, oy, _, _, _ := e.wuzzEditor.g.ViewPosition(v.Name())
 
 	maxWidth := sx - cx
 	maxHeight := 10
 
 	if len(completions) > 0 {
 		comps := completions
+		x := ox+cx
+		y := oy+cy
 		if len(comps) == 1 {
 			comps[0] = comps[0][len(lastSymbol):]
+		} else {
+			y += 1
+			x -= len(lastSymbol)
+			maxWidth += len(lastSymbol)
 		}
-		showAutocomplete(comps, ox+cx, oy+cy, maxWidth, maxHeight, e.wuzzEditor.g)
+		showAutocomplete(comps, x, y, maxWidth, maxHeight, e.wuzzEditor.g)
 		e.isAutocompleting = true
 	}
 }
@@ -647,7 +650,7 @@ func showAutocomplete(completions []string, left, top, maxWidth, maxHeight int, 
 	VIEW_POSITIONS[AUTOCOMPLETE_VIEW] = newPos
 
 	p := VIEW_PROPERTIES[AUTOCOMPLETE_VIEW]
-	p.text = strings.Join(append(completions, fmt.Sprint(maxHeight)+"x"+fmt.Sprint(maxWidth)), "\n")
+	p.text = strings.Join(completions, "\n")
 	VIEW_PROPERTIES[AUTOCOMPLETE_VIEW] = p
 
 	if v, err := setView(g, AUTOCOMPLETE_VIEW); err != nil {
@@ -655,7 +658,7 @@ func showAutocomplete(completions []string, left, top, maxWidth, maxHeight int, 
 			return
 		}
 		setViewProperties(v, AUTOCOMPLETE_VIEW)
-		v.BgColor = gocui.ColorRed
+		v.BgColor = gocui.ColorBlue
 		v.FgColor = gocui.ColorDefault
 		g.SetViewOnTop(AUTOCOMPLETE_VIEW)
 	}
