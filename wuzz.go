@@ -48,6 +48,7 @@ const (
 
 	SEARCH_PROMPT_VIEW = "prompt"
 	POPUP_VIEW         = "popup_view"
+	AUTOCOMPLETE_VIEW  = "autocomplete_view"
 	ERROR_VIEW         = "error_view"
 	HISTORY_VIEW       = "history"
 	SAVE_DIALOG_VIEW   = "save-dialog"
@@ -131,6 +132,11 @@ var VIEW_POSITIONS = map[string]viewPosition{
 		position{0.5, -1},
 		position{0.5, -9999}, // set before usage using len(msg)
 		position{0.5, 1}},
+	AUTOCOMPLETE_VIEW: {
+		position{0, -9999},
+		position{0, -9999},
+		position{0, -9999},
+		position{0, -9999}},
 }
 
 type viewProperties struct {
@@ -177,7 +183,9 @@ var VIEW_PROPERTIES = map[string]viewProperties{
 		frame:    true,
 		editable: true,
 		wrap:     false,
-		editor:   &defaultEditor,
+		editor: &AutocompleteEditor{&defaultEditor, func(str string) []string {
+			return completeFromSlice(str, REQUEST_HEADERS)
+		}, []string{}, false},
 	},
 	RESPONSE_HEADERS_VIEW: {
 		title:    "Response headers",
@@ -211,6 +219,13 @@ var VIEW_PROPERTIES = map[string]viewProperties{
 	POPUP_VIEW: {
 		title:    "Info",
 		frame:    true,
+		editable: false,
+		wrap:     false,
+		editor:   nil,
+	},
+	AUTOCOMPLETE_VIEW: {
+		title:    "",
+		frame:    false,
 		editable: false,
 		wrap:     false,
 		editor:   nil,
@@ -289,6 +304,13 @@ type ViewEditor struct {
 	origEditor    gocui.Editor
 }
 
+type AutocompleteEditor struct {
+	wuzzEditor         *ViewEditor
+	completions        func(string) []string
+	currentCompletions []string
+	isAutocompleting   bool
+}
+
 type SearchEditor struct {
 	wuzzEditor *ViewEditor
 }
@@ -331,6 +353,88 @@ func (e *ViewEditor) Edit(v *gocui.View, key gocui.Key, ch rune, mod gocui.Modif
 	}
 
 	e.origEditor.Edit(v, key, ch, mod)
+}
+
+var symbolPattern = regexp.MustCompile("[a-zA-Z0-9-]+$")
+
+func getLastSymbol(str string) string {
+	return symbolPattern.FindString(str)
+}
+
+func completeFromSlice(str string, completions []string) []string {
+	completed := []string{}
+	if str == "" || strings.TrimRight(str, " \n") != str {
+		return completed
+	}
+	for _, completion := range completions {
+		if strings.HasPrefix(completion, str) && str != completion {
+			completed = append(completed, completion)
+		}
+	}
+	return completed
+}
+
+func (e *AutocompleteEditor) Edit(v *gocui.View, key gocui.Key, ch rune, mod gocui.Modifier) {
+	if key != gocui.KeyEnter {
+		e.wuzzEditor.Edit(v, key, ch, mod)
+	}
+
+	cx, cy := v.Cursor()
+	line, err := v.Line(cy)
+	trimmedLine := line[:cx]
+
+	if err != nil {
+		e.wuzzEditor.Edit(v, key, ch, mod)
+		return
+	}
+
+	lastSymbol := getLastSymbol(trimmedLine)
+	if key == gocui.KeyEnter && e.isAutocompleting {
+		currentCompletion := e.currentCompletions[0]
+		shouldDelete := true
+		if len(e.currentCompletions) == 1 {
+			shouldDelete = false
+		}
+
+		if shouldDelete {
+			for _ = range lastSymbol {
+				v.EditDelete(true)
+			}
+		}
+		for _, char := range currentCompletion {
+			v.EditWrite(char)
+		}
+		closeAutocomplete(e.wuzzEditor.g)
+		e.isAutocompleting = false
+		return
+	} else if key == gocui.KeyEnter {
+		e.wuzzEditor.Edit(v, key, ch, mod)
+	}
+
+	closeAutocomplete(e.wuzzEditor.g)
+	e.isAutocompleting = false
+
+	completions := e.completions(lastSymbol)
+	e.currentCompletions = completions
+
+	cx, cy = v.Cursor()
+	maxX, maxY := e.wuzzEditor.g.Size()
+	sx, _ := v.Size()
+	pos := VIEW_POSITIONS[v.Name()]
+	ox := pos.x0.getCoordinate(maxX)
+	oy := pos.y0.getCoordinate(maxY)
+
+	maxWidth := sx - cx
+	maxHeight := 10
+
+	if len(completions) > 0 {
+		comps := completions
+		if len(comps) == 1 {
+			comps[0] = comps[0][len(lastSymbol):]
+		}
+		showAutocomplete(comps, ox+cx, oy+cy, maxWidth, maxHeight, e.wuzzEditor.g)
+		e.isAutocompleting = true
+	}
 }
 
 func (e *SearchEditor) Edit(v *gocui.View, key gocui.Key, ch rune, mod gocui.Modifier) {
@@ -505,6 +609,55 @@ func popup(g *gocui.Gui, msg string) {
 		}
 		setViewProperties(v, POPUP_VIEW)
 		g.SetViewOnTop(POPUP_VIEW)
+	}
+}
+
+func minInt(x, y int) int {
+	if x < y {
+		return x
+	}
+	return y
+}
+
+func closeAutocomplete(g *gocui.Gui) {
+	g.DeleteView(AUTOCOMPLETE_VIEW)
+}
+
+func showAutocomplete(completions []string, left, top, maxWidth, maxHeight int, g *gocui.Gui) {
+	// Get the width of the widest completion
+	completionsWidth := 0
+	for _, completion := range completions {
+		thisCompletionWidth := len(completion)
+		if thisCompletionWidth > completionsWidth {
+			completionsWidth = thisCompletionWidth
+		}
+	}
+
+	// Get the width and height of the autocomplete window
+	width := minInt(completionsWidth, maxWidth)
+	height := minInt(len(completions), maxHeight)
+
+	newPos := viewPosition{
+		x0: position{0, left},
+		y0: position{0, top},
+		x1: position{0, left + width + 1},
+		y1: position{0, top + height + 1},
+	}
+
+	VIEW_POSITIONS[AUTOCOMPLETE_VIEW] = newPos
+
+	p := VIEW_PROPERTIES[AUTOCOMPLETE_VIEW]
+	p.text = strings.Join(append(completions, fmt.Sprint(maxHeight)+"x"+fmt.Sprint(maxWidth)), "\n")
+	VIEW_PROPERTIES[AUTOCOMPLETE_VIEW] = p
+
+	if v, err := setView(g, AUTOCOMPLETE_VIEW); err != nil {
+		if err != gocui.ErrUnknownView {
+			return
+		}
+		setViewProperties(v, AUTOCOMPLETE_VIEW)
+		v.BgColor = gocui.ColorRed
+		v.FgColor = gocui.ColorDefault
+		g.SetViewOnTop(AUTOCOMPLETE_VIEW)
 	}
 }
 
