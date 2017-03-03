@@ -426,8 +426,8 @@ func (e *AutocompleteEditor) Edit(v *gocui.View, key gocui.Key, ch rune, mod goc
 
 	if len(completions) > 0 {
 		comps := completions
-		x := ox+cx
-		y := oy+cy
+		x := ox + cx
+		y := oy + cy
 		if len(comps) == 1 {
 			comps[0] = comps[0][len(lastSymbol):]
 		} else {
