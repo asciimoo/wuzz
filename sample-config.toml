@@ -5,6 +5,7 @@ insecure = false
 preserveScrollPosition = true
 followRedirects = true
 defaultURLScheme = "https"
+statusLine = "wuzz {{.Version}}"
 
 # KEYBINDINGS
 [keys.global]

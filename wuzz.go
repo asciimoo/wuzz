@@ -42,6 +42,7 @@ const (
 	REQUEST_METHOD_VIEW   = "method"
 	REQUEST_DATA_VIEW     = "data"
 	REQUEST_HEADERS_VIEW  = "headers"
+	STATUSLINE_VIEW       = "status-line"
 	SEARCH_VIEW           = "search"
 	RESPONSE_HEADERS_VIEW = "response-headers"
 	RESPONSE_BODY_VIEW    = "response-body"
@@ -112,6 +113,11 @@ var VIEW_POSITIONS = map[string]viewPosition{
 		position{0.25, 2},
 		position{1.0, -2},
 		position{1.0, -3}},
+	STATUSLINE_VIEW: {
+		position{0.0, -1},
+		position{1.0, -4},
+		position{1.0, 0},
+		position{1.0, -1}},
 	SEARCH_VIEW: {
 		position{0.0, 7},
 		position{1.0, -3},
@@ -208,6 +214,14 @@ var VIEW_PROPERTIES = map[string]viewProperties{
 		wrap:     false,
 		editor:   &singleLineEditor{&SearchEditor{&defaultEditor}},
 	},
+	STATUSLINE_VIEW : {
+		title:    "",
+		frame:    false,
+		editable: false,
+		wrap:     false,
+		editor:   nil,
+		text:     "",
+	},
 	SEARCH_PROMPT_VIEW: {
 		title:    "",
 		frame:    false,
@@ -295,6 +309,7 @@ type App struct {
 	currentPopup string
 	history      []*Request
 	config       *config.Config
+	statusLine   *StatusLine
 }
 
 type ViewEditor struct {
@@ -556,6 +571,7 @@ func (a *App) Layout(g *gocui.Gui) error {
 		REQUEST_HEADERS_VIEW,
 		RESPONSE_HEADERS_VIEW,
 		RESPONSE_BODY_VIEW,
+		STATUSLINE_VIEW,
 		SEARCH_PROMPT_VIEW,
 		SEARCH_VIEW,
 	} {
@@ -566,6 +582,10 @@ func (a *App) Layout(g *gocui.Gui) error {
 			setViewProperties(v, name)
 		}
 	}
+	sv, _ := g.View(STATUSLINE_VIEW)
+	sv.BgColor = gocui.ColorDefault | gocui.AttrReverse
+	sv.FgColor = gocui.ColorDefault | gocui.AttrReverse
+	a.statusLine.Update(sv)
 
 	return nil
 }
@@ -1264,6 +1284,13 @@ func (a *App) LoadConfig(configPath string) error {
 	}
 
 	a.config = conf
+	sl, err := NewStatusLine(conf.General.StatusLine)
+	if err != nil {
+		a.config = &config.DefaultConfig
+		a.config.Keys = config.DefaultKeys
+		return err
+	}
+	a.statusLine = sl
 	return nil
 }
 

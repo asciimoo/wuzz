@@ -40,6 +40,7 @@ type GeneralOptions struct {
 	PreserveScrollPosition bool
 	FollowRedirects        bool
 	DefaultURLScheme       string
+	StatusLine             string
 	TLSVersionMin          uint16
 	TLSVersionMax          uint16
 }
@@ -98,6 +99,7 @@ var DefaultConfig = Config{
 		Insecure:               false,
 		PreserveScrollPosition: true,
 		FollowRedirects:        true,
+		StatusLine:             "wuzz {{ .Version }}",
 		DefaultURLScheme:       "https",
 	},
 }
