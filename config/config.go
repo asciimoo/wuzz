@@ -99,7 +99,7 @@ var DefaultConfig = Config{
 		Insecure:               false,
 		PreserveScrollPosition: true,
 		FollowRedirects:        true,
-		StatusLine:             "wuzz {{ .Version }}",
+		StatusLine:             "[wuzz {{.Version}}]{{if .Duration}} [Response time: {{.Duration}}]{{end}}",
 		DefaultURLScheme:       "https",
 	},
 }

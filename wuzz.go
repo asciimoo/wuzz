@@ -214,7 +214,7 @@ var VIEW_PROPERTIES = map[string]viewProperties{
 		wrap:     false,
 		editor:   &singleLineEditor{&SearchEditor{&defaultEditor}},
 	},
-	STATUSLINE_VIEW : {
+	STATUSLINE_VIEW: {
 		title:    "",
 		frame:    false,
 		editable: false,
@@ -301,6 +301,7 @@ type Request struct {
 	ResponseHeaders string
 	RawResponseBody []byte
 	ContentType     string
+	Duration        time.Duration
 }
 
 type App struct {
@@ -585,7 +586,7 @@ func (a *App) Layout(g *gocui.Gui) error {
 	sv, _ := g.View(STATUSLINE_VIEW)
 	sv.BgColor = gocui.ColorDefault | gocui.AttrReverse
 	sv.FgColor = gocui.ColorDefault | gocui.AttrReverse
-	a.statusLine.Update(sv)
+	a.statusLine.Update(sv, a)
 
 	return nil
 }
@@ -769,7 +770,9 @@ func (a *App) SubmitRequest(g *gocui.Gui, _ *gocui.View) error {
 		req.Header = headers
 
 		// do request
+		start := time.Now()
 		response, err := CLIENT.Do(req)
+		r.Duration = time.Since(start)
 		if err != nil {
 			g.Execute(func(g *gocui.Gui) error {
 				vrb, _ := g.View(RESPONSE_BODY_VIEW)
