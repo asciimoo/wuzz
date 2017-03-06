@@ -413,7 +413,7 @@ func (e *AutocompleteEditor) Edit(v *gocui.View, key gocui.Key, ch rune, mod goc
 		}
 
 		if shouldDelete {
-			for _ = range lastSymbol {
+			for range lastSymbol {
 				v.EditDelete(true)
 			}
 		}
@@ -1376,7 +1376,7 @@ func (a *App) ParseArgs(g *gocui.Gui, args []string) error {
 			a.config.General.Timeout = config.Duration{Duration: time.Duration(timeout) * time.Millisecond}
 		case "--compressed":
 			vh, _ := g.View(REQUEST_HEADERS_VIEW)
-			if strings.Index(getViewValue(g, REQUEST_HEADERS_VIEW), "Accept-Encoding") == -1 {
+			if !strings.Contains(getViewValue(g, REQUEST_HEADERS_VIEW), "Accept-Encoding") {
 				fmt.Fprintln(vh, "Accept-Encoding: gzip, deflate")
 			}
 		case "-k", "--insecure":
