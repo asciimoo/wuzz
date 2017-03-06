@@ -1276,6 +1276,7 @@ func (a *App) LoadConfig(configPath string) error {
 	if _, err := os.Stat(configPath); os.IsNotExist(err) {
 		a.config = &config.DefaultConfig
 		a.config.Keys = config.DefaultKeys
+		a.statusLine, _ = NewStatusLine(a.config.General.StatusLine)
 		return nil
 	}
 
