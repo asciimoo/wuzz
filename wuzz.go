@@ -1143,6 +1143,7 @@ func (a *App) CreatePopupView(name string, width, height int, g *gocui.Gui) (v *
 	v.Frame = true
 	v.Highlight = true
 	v.SelFgColor = gocui.ColorYellow
+	v.SelBgColor = gocui.ColorDefault
 	a.currentPopup = name
 	return
 }
