@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"strconv"
 	"text/template"
 
 	"github.com/jroimartin/gocui"
@@ -24,6 +25,18 @@ func (s *StatusLineFunctions) Duration() string {
 		return ""
 	}
 	return s.app.history[s.app.historyIndex].Duration.String()
+}
+
+func (s *StatusLineFunctions) HistorySize() string {
+	return strconv.Itoa(len(s.app.history))
+}
+
+func (s *StatusLineFunctions) RequestNumber() string {
+	i := s.app.historyIndex
+	if len(s.app.history) > 0 {
+		i += 1
+	}
+	return strconv.Itoa(i)
 }
 
 func (s *StatusLine) Update(v *gocui.View, a *App) {
