@@ -1550,7 +1550,7 @@ Other command line options:
   -R, --disable-redirects  Do not follow HTTP redirects
   -T, --tls MIN,MAX        Restrict allowed TLS versions (values: SSL3.0,TLS1.0,TLS1.1,TLS1.2)
                            Examples: wuzz -k -T TLS1.1        (TLS1.1 only)
-		                     wuzz -k -T TLS1.0,TLS1.1 (from TLS1.0 up to TLS1.1)
+                                     wuzz -k -T TLS1.0,TLS1.1 (from TLS1.0 up to TLS1.1)
   --tlsv1.0                Forces TLS1.0 only
   --tlsv1.1                Forces TLS1.1 only
   --tlsv1.2                Forces TLS1.2 only
