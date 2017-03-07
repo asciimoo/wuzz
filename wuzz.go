@@ -28,7 +28,7 @@ import (
 	"github.com/mattn/go-runewidth"
 )
 
-const VERSION = "0.2.0"
+const VERSION = "0.3.0"
 
 const TIMEOUT_DURATION = 5 // in seconds
 const WINDOWS_OS = "windows"
