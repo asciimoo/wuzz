@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"compress/gzip"
 	"crypto/tls"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -49,9 +50,10 @@ const (
 
 	SEARCH_PROMPT_VIEW        = "prompt"
 	POPUP_VIEW                = "popup_view"
-	AUTOCOMPLETE_VIEW  = "autocomplete_view"
+	AUTOCOMPLETE_VIEW         = "autocomplete_view"
 	ERROR_VIEW                = "error_view"
 	HISTORY_VIEW              = "history"
+	SAVE_DIALOG_VIEW          = "save-dialog"
 	SAVE_RESPONSE_DIALOG_VIEW = "save-response-dialog"
 	SAVE_REQUEST_DIALOG_VIEW  = "save-request-dialog"
 	SAVE_RESULT_VIEW          = "save-result"
@@ -65,6 +67,7 @@ var VIEW_TITLES = map[string]string{
 	HISTORY_VIEW:              "History",
 	SAVE_RESPONSE_DIALOG_VIEW: "Save Response (enter to submit, ctrl+q to cancel)",
 	SAVE_REQUEST_DIALOG_VIEW:  "Save Request (enter to submit, ctrl+q to cancel)",
+	SAVE_RESULT_VIEW:          "Save Result (press enter to close)",
 	METHOD_LIST_VIEW:          "Methods",
 	HELP_VIEW:                 "Help",
 }
@@ -1057,68 +1060,8 @@ func (a *App) SetKeys(g *gocui.Gui) error {
 		return nil
 	})
 
-	g.SetKeybinding(SAVE_RESPONSE_DIALOG_VIEW, gocui.KeyEnter, gocui.ModNone, func(g *gocui.Gui, v *gocui.View) error {
-		defer a.closePopup(g, SAVE_RESPONSE_DIALOG_VIEW)
-
-		saveLocation := getViewValue(g, SAVE_RESPONSE_DIALOG_VIEW)
-
-		if len(a.history) == 0 {
-			return nil
-		}
-		req := a.history[a.historyIndex]
-		if req.RawResponseBody == nil {
-			return nil
-		}
-
-		err := ioutil.WriteFile(saveLocation, req.RawResponseBody, 0644)
-
-		var saveResult string
-		if err == nil {
-			saveResult = "Response saved successfully."
-		} else {
-			saveResult = "Error saving response: " + err.Error()
-		}
-		viewErr := a.OpenSaveResultView(saveResult, g)
-		return viewErr
-	})
-
-	g.SetKeybinding(SAVE_REQUEST_DIALOG_VIEW, gocui.KeyEnter, gocui.ModNone, func(g *gocui.Gui, v *gocui.View) error {
-		defer a.closePopup(g, SAVE_REQUEST_DIALOG_VIEW)
-		saveLocation := getViewValue(g, SAVE_REQUEST_DIALOG_VIEW)
-
-		var requestMap map[string]string
-		requestMap = make(map[string]string)
-		requestMap[URL_VIEW] = getViewValue(g, URL_VIEW)
-		requestMap[REQUEST_METHOD_VIEW] = getViewValue(g, REQUEST_METHOD_VIEW)
-		requestMap[URL_PARAMS_VIEW] = getViewValue(g, URL_PARAMS_VIEW)
-		requestMap[REQUEST_DATA_VIEW] = getViewValue(g, REQUEST_DATA_VIEW)
-		requestMap[REQUEST_HEADERS_VIEW] = getViewValue(g, REQUEST_HEADERS_VIEW)
-
-		requestJson, err := json.Marshal(requestMap)
-		if err != nil {
-			return err
-		}
-
-		ioerr := ioutil.WriteFile(saveLocation, []byte(requestJson), 0644)
-
-		var saveResult string
-		if ioerr == nil {
-			saveResult = "Request saved successfully."
-		} else {
-			saveResult = "Error saving request: " + err.Error()
-		}
-		viewErr := a.OpenSaveResultView(saveResult, g)
-
-		return viewErr
-	})
-
-	g.SetKeybinding(SAVE_RESPONSE_DIALOG_VIEW, gocui.KeyCtrlQ, gocui.ModNone, func(g *gocui.Gui, v *gocui.View) error {
-		a.closePopup(g, SAVE_RESPONSE_DIALOG_VIEW)
-		return nil
-	})
-
-	g.SetKeybinding(SAVE_REQUEST_DIALOG_VIEW, gocui.KeyCtrlQ, gocui.ModNone, func(g *gocui.Gui, v *gocui.View) error {
-		a.closePopup(g, SAVE_REQUEST_DIALOG_VIEW)
+	g.SetKeybinding(SAVE_DIALOG_VIEW, gocui.KeyCtrlQ, gocui.ModNone, func(g *gocui.Gui, v *gocui.View) error {
+		a.closePopup(g, SAVE_DIALOG_VIEW)
 		return nil
 	})
 
@@ -1229,25 +1172,14 @@ func (a *App) ToggleMethodList(g *gocui.Gui, _ *gocui.View) (err error) {
 	return
 }
 
-func (a *App) OpenSaveResponseDialog(g *gocui.Gui, _ *gocui.View) (err error) {
-	a.OpenSaveDialog(SAVE_RESPONSE_DIALOG_VIEW, g, nil)
-	return
-}
-
-func (a *App) OpenSaveRequestDialog(g *gocui.Gui, _ *gocui.View) (err error) {
-	a.OpenSaveDialog(SAVE_REQUEST_DIALOG_VIEW, g, nil)
-	return
-}
-
-func (a *App) OpenSaveDialog(view string, g *gocui.Gui, _ *gocui.View) (err error) {
-	dialog, err := a.CreatePopupView(view, 60, 1, g)
+func (a *App) OpenSaveDialog(title string, g *gocui.Gui, save func(g *gocui.Gui, v *gocui.View) error) error {
+	dialog, err := a.CreatePopupView(SAVE_DIALOG_VIEW, 60, 1, g)
 	if err != nil {
-		return
+		return err
 	}
-
 	g.Cursor = true
 
-	dialog.Title = VIEW_TITLES[view]
+	dialog.Title = title
 	dialog.Editable = true
 	dialog.Wrap = false
 
@@ -1259,15 +1191,16 @@ func (a *App) OpenSaveDialog(view string, g *gocui.Gui, _ *gocui.View) (err erro
 
 	setViewTextAndCursor(dialog, currentDir)
 
-	g.SetViewOnTop(view)
-	g.SetCurrentView(view)
+	g.SetViewOnTop(SAVE_DIALOG_VIEW)
+	g.SetCurrentView(SAVE_DIALOG_VIEW)
 	dialog.SetCursor(0, len(currentDir))
-	return
+	g.DeleteKeybinding(SAVE_DIALOG_VIEW, gocui.KeyEnter, gocui.ModNone)
+	g.SetKeybinding(SAVE_DIALOG_VIEW, gocui.KeyEnter, gocui.ModNone, save)
+	return nil
 }
 
 func (a *App) OpenSaveResultView(saveResult string, g *gocui.Gui) (err error) {
-	popupTitle := "Save Result (press enter to close)"
-
+	popupTitle := VIEW_TITLES[SAVE_RESULT_VIEW]
 	saveResHeight := 1
 	saveResWidth := len(saveResult) + 1
 	if len(popupTitle)+2 > saveResWidth {

@@ -1,7 +1,9 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"strings"
 	"unicode"
 
@@ -15,10 +17,65 @@ var COMMANDS map[string]func(string, *App) CommandFunc = map[string]func(string,
 		return a.SubmitRequest
 	},
 	"saveResponse": func(_ string, a *App) CommandFunc {
-		return a.OpenSaveResponseDialog
+		return func(g *gocui.Gui, _ *gocui.View) error {
+			return a.OpenSaveDialog(VIEW_TITLES[SAVE_RESPONSE_DIALOG_VIEW], g,
+				func(g *gocui.Gui, _ *gocui.View) error {
+					saveLocation := getViewValue(g, SAVE_DIALOG_VIEW)
+
+					if len(a.history) == 0 {
+						return nil
+					}
+					req := a.history[a.historyIndex]
+					if req.RawResponseBody == nil {
+						return nil
+					}
+
+					err := ioutil.WriteFile(saveLocation, req.RawResponseBody, 0644)
+
+					var saveResult string
+					if err == nil {
+						saveResult = "Response saved successfully."
+					} else {
+						saveResult = "Error saving response: " + err.Error()
+					}
+					viewErr := a.OpenSaveResultView(saveResult, g)
+					return viewErr
+				})
+		}
 	},
 	"saveRequest": func(_ string, a *App) CommandFunc {
-		return a.OpenSaveRequestDialog
+		return func(g *gocui.Gui, _ *gocui.View) error {
+			return a.OpenSaveDialog(VIEW_TITLES[SAVE_REQUEST_DIALOG_VIEW], g,
+				func(g *gocui.Gui, _ *gocui.View) error {
+					defer a.closePopup(g, SAVE_DIALOG_VIEW)
+					saveLocation := getViewValue(g, SAVE_DIALOG_VIEW)
+
+					var requestMap map[string]string
+					requestMap = make(map[string]string)
+					requestMap[URL_VIEW] = getViewValue(g, URL_VIEW)
+					requestMap[REQUEST_METHOD_VIEW] = getViewValue(g, REQUEST_METHOD_VIEW)
+					requestMap[URL_PARAMS_VIEW] = getViewValue(g, URL_PARAMS_VIEW)
+					requestMap[REQUEST_DATA_VIEW] = getViewValue(g, REQUEST_DATA_VIEW)
+					requestMap[REQUEST_HEADERS_VIEW] = getViewValue(g, REQUEST_HEADERS_VIEW)
+
+					requestJson, err := json.Marshal(requestMap)
+					if err != nil {
+						return err
+					}
+
+					ioerr := ioutil.WriteFile(saveLocation, []byte(requestJson), 0644)
+
+					var saveResult string
+					if ioerr == nil {
+						saveResult = "Request saved successfully."
+					} else {
+						saveResult = "Error saving request: " + err.Error()
+					}
+					viewErr := a.OpenSaveResultView(saveResult, g)
+
+					return viewErr
+				})
+		}
 	},
 	"history": func(_ string, a *App) CommandFunc {
 		return a.ToggleHistory
