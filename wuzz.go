@@ -27,6 +27,7 @@ import (
 
 	"github.com/jroimartin/gocui"
 	"github.com/mattn/go-runewidth"
+	"github.com/nsf/termbox-go"
 )
 
 const VERSION = "0.3.0"
@@ -1617,13 +1618,18 @@ func main() {
 			}
 		}
 	}
-	g, err := gocui.NewGui(gocui.Output256)
-	if err != nil {
-		g, err = gocui.NewGui(gocui.OutputNormal)
-		if err != nil {
-			log.Panicln(err)
+	var g *gocui.Gui
+	var err error
+	for _, outputMode := range []gocui.OutputMode{gocui.Output256, gocui.OutputNormal, gocui.OutputMode(termbox.OutputGrayscale)} {
+		g, err = gocui.NewGui(outputMode)
+		if err == nil {
+			break
 		}
 	}
+	if err != nil {
+		log.Panicln(err)
+	}
+
 	if runtime.GOOS == WINDOWS_OS && runewidth.IsEastAsian() {
 		g.ASCII = true
 	}
