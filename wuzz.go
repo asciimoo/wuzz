@@ -1619,7 +1619,10 @@ func main() {
 	}
 	g, err := gocui.NewGui(gocui.Output256)
 	if err != nil {
-		log.Panicln(err)
+		g, err = gocui.NewGui(gocui.OutputNormal)
+		if err != nil {
+			log.Panicln(err)
+		}
 	}
 	if runtime.GOOS == WINDOWS_OS && runewidth.IsEastAsian() {
 		g.ASCII = true
