@@ -10,9 +10,11 @@ import (
 	"io"
 	"io/ioutil"
 	"log"
+	"mime/multipart"
 	"net/http"
 	"net/url"
 	"os"
+	"path"
 	"regexp"
 	"runtime"
 	"sort"
@@ -757,10 +759,47 @@ func (a *App) SubmitRequest(g *gocui.Gui, _ *gocui.View) error {
 		// parse POST/PUT/PATCH data
 		if r.Method == http.MethodPost || r.Method == http.MethodPut || r.Method == http.MethodPatch {
 			bodyStr := getViewValue(g, REQUEST_DATA_VIEW)
-			if headers.Get("Content-Type") == "application/x-www-form-urlencoded" {
-				bodyStr = strings.Replace(bodyStr, "\n", "&", -1)
+			if headers.Get("Content-Type") != "multipart/form-data" {
+				if headers.Get("Content-Type") == "application/x-www-form-urlencoded" {
+					bodyStr = strings.Replace(bodyStr, "\n", "&", -1)
+				}
+				body = bytes.NewBufferString(bodyStr)
+			} else {
+				var bodyBytes bytes.Buffer
+				multiWriter := multipart.NewWriter(&bodyBytes)
+				defer multiWriter.Close()
+				postData, err := url.ParseQuery(strings.Replace(getViewValue(g, REQUEST_DATA_VIEW), "\n", "&", -1))
+				if err != nil {
+					return err
+				}
+				for postKey, postValues := range postData {
+					for i := range postValues {
+						if len([]rune(postValues[i])) > 0 && postValues[i][0] == '@' {
+							file, err := os.Open(postValues[i][1:])
+							if err != nil {
+								return err
+							}
+							defer file.Close()
+							fw, err := multiWriter.CreateFormFile(postKey, path.Base(postValues[i][1:]))
+							if err != nil {
+								return err
+							}
+							if _, err := io.Copy(fw, file); err != nil {
+								return err
+							}
+						} else {
+							fw, err := multiWriter.CreateFormField(postKey)
+							if err != nil {
+								return err
+							}
+							if _, err := fw.Write([]byte(postValues[i])); err != nil {
+								return err
+							}
+						}
+					}
+				}
+				body = bytes.NewReader(bodyBytes.Bytes())
 			}
-			body = bytes.NewBufferString(bodyStr)
 		}
 
 		// create request
@@ -1424,6 +1463,18 @@ func (a *App) ParseArgs(g *gocui.Gui, args []string) error {
 			default:
 				return errors.New("Unknown proxy protocol")
 			}
+		case "-F", "--form":
+			if arg_index == args_len-1 {
+				return errors.New("No POST/PUT/PATCH value specified")
+			}
+
+			arg_index += 1
+			form_str := args[arg_index]
+			content_type = "multipart"
+			accept_types = append(accept_types, config.ContentTypes["multipart"])
+			set_data = true
+			vdata, _ := g.View(REQUEST_DATA_VIEW)
+			setViewTextAndCursor(vdata, form_str)
 		case "-f", "--file":
 			if arg_index == args_len-1 {
 				return errors.New("-f or --file requires a file path be provided as an argument")
@@ -1576,6 +1627,8 @@ Other command line options:
   -c, --config PATH        Specify custom configuration file
   -h, --help               Show this
   -j, --json JSON          Add JSON request data and set related request headers
+  -F, --form DATA          Adds multipart form request data and set related request headers
+                           If the value starts with @ it will be handled as a file path for upload
   -k, --insecure           Allow insecure SSL certs
   -R, --disable-redirects  Do not follow HTTP redirects
   -T, --tls MIN,MAX        Restrict allowed TLS versions (values: SSL3.0,TLS1.0,TLS1.1,TLS1.2)
