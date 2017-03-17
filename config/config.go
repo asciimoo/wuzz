@@ -12,8 +12,9 @@ import (
 )
 
 var ContentTypes = map[string]string{
-	"json": "application/json",
-	"form": "application/x-www-form-urlencoded",
+	"json":      "application/json",
+	"form":      "application/x-www-form-urlencoded",
+	"multipart": "multipart/form-data",
 }
 
 // Duration is used to automatically unmarshal timeout strings to
