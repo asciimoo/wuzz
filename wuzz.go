@@ -777,6 +777,11 @@ func (a *App) SubmitRequest(g *gocui.Gui, _ *gocui.View) error {
 						if len([]rune(postValues[i])) > 0 && postValues[i][0] == '@' {
 							file, err := os.Open(postValues[i][1:])
 							if err != nil {
+								g.Execute(func(g *gocui.Gui) error {
+									vrb, _ := g.View(RESPONSE_BODY_VIEW)
+									fmt.Fprintf(vrb, "Error: %v", err)
+									return nil
+								})
 								return err
 							}
 							defer file.Close()
@@ -1471,7 +1476,6 @@ func (a *App) ParseArgs(g *gocui.Gui, args []string) error {
 			arg_index += 1
 			form_str := args[arg_index]
 			content_type = "multipart"
-			accept_types = append(accept_types, config.ContentTypes["multipart"])
 			set_data = true
 			vdata, _ := g.View(REQUEST_DATA_VIEW)
 			setViewTextAndCursor(vdata, form_str)
@@ -1627,7 +1631,7 @@ Other command line options:
   -c, --config PATH        Specify custom configuration file
   -h, --help               Show this
   -j, --json JSON          Add JSON request data and set related request headers
-  -F, --form DATA          Adds multipart form request data and set related request headers
+  -F, --form DATA          Add multipart form request data and set related request headers
                            If the value starts with @ it will be handled as a file path for upload
   -k, --insecure           Allow insecure SSL certs
   -R, --disable-redirects  Do not follow HTTP redirects
