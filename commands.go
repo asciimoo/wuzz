@@ -4,10 +4,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"os"
+	"os/exec"
 	"strings"
 	"unicode"
 
 	"github.com/jroimartin/gocui"
+	"github.com/nsf/termbox-go"
 )
 
 type CommandFunc func(*gocui.Gui, *gocui.View) error
@@ -112,6 +115,12 @@ var COMMANDS map[string]func(string, *App) CommandFunc = map[string]func(string,
 	"deleteWord": func(_ string, _ *App) CommandFunc {
 		return deleteWord
 	},
+	"openEditor": func(_ string, a *App) CommandFunc {
+		return func(g *gocui.Gui, v *gocui.View) error {
+			return openEditor(g, v, a.config.General.Editor)
+		}
+
+	},
 }
 
 func scrollView(v *gocui.View, dy int) error {
@@ -209,4 +218,59 @@ func getCharCategory(chr rune) int {
 
 func quit(g *gocui.Gui, v *gocui.View) error {
 	return gocui.ErrQuit
+}
+
+func openEditor(g *gocui.Gui, v *gocui.View, editor string) error {
+	file, err := ioutil.TempFile(os.TempDir(), "wuzz-")
+	if err != nil {
+		return nil
+	}
+	defer os.Remove(file.Name())
+
+	val := getViewValue(g, v.Name())
+	if val != "" {
+		fmt.Fprint(file, val)
+	}
+	file.Close()
+
+	info, err := os.Stat(file.Name())
+	if err != nil {
+		return nil
+	}
+
+	cmd := exec.Command(editor, file.Name())
+	cmd.Stdout = os.Stdout
+	cmd.Stdin = os.Stdin
+	cmd.Stderr = os.Stderr
+	err = cmd.Run()
+	// restart termbox to reset console settings
+	// this is required because the external editor can modify the console
+	defer g.Execute(func(_ *gocui.Gui) error {
+		termbox.Close()
+		termbox.Init()
+		return nil
+	})
+	if err != nil {
+		rv, _ := g.View(RESPONSE_BODY_VIEW)
+		rv.Clear()
+		fmt.Fprintf(rv, "Editor open error: %v", err)
+		return nil
+	}
+
+	newInfo, err := os.Stat(file.Name())
+	if err != nil || newInfo.ModTime().Before(info.ModTime()) {
+		return nil
+	}
+
+	newVal, err := ioutil.ReadFile(file.Name())
+	if err != nil {
+		return nil
+	}
+
+	v.SetCursor(0, 0)
+	v.SetOrigin(0, 0)
+	v.Clear()
+	fmt.Fprint(v, strings.TrimSpace(string(newVal)))
+
+	return nil
 }

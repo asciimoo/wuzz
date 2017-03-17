@@ -1409,6 +1409,12 @@ func (a *App) ParseArgs(g *gocui.Gui, args []string) error {
 			if !strings.Contains(getViewValue(g, REQUEST_HEADERS_VIEW), "Accept-Encoding") {
 				fmt.Fprintln(vh, "Accept-Encoding: gzip, deflate")
 			}
+		case "-e", "--editor":
+			if arg_index == args_len-1 {
+				return errors.New("No timeout value specified")
+			}
+			arg_index += 1
+			a.config.General.Editor = args[arg_index]
 		case "-k", "--insecure":
 			a.config.General.Insecure = true
 		case "-R", "--disable-redirects":
@@ -1629,6 +1635,7 @@ Usage: wuzz [-H|--header HEADER]... [-d|--data|--data-binary DATA] [-X|--request
 
 Other command line options:
   -c, --config PATH        Specify custom configuration file
+  -e, --editor EDITOR      Specify external editor command
   -h, --help               Show this
   -j, --json JSON          Add JSON request data and set related request headers
   -F, --form DATA          Add multipart form request data and set related request headers

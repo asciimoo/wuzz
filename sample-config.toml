@@ -6,6 +6,7 @@ preserveScrollPosition = true
 followRedirects = true
 defaultURLScheme = "https"
 statusLine = "[wuzz {{.Version}}] [Response time: {{.Duration}}]"
+editor = "vim"
 
 # KEYBINDINGS
 [keys.global]

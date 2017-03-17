@@ -44,6 +44,7 @@ type GeneralOptions struct {
 	StatusLine             string
 	TLSVersionMin          uint16
 	TLSVersionMax          uint16
+	Editor                 string
 }
 
 var defaultTimeoutDuration, _ = time.ParseDuration("1m")
@@ -56,6 +57,7 @@ var DefaultKeys = map[string]map[string]string{
 		"CtrlE": "saveRequest",
 		"CtrlD": "deleteLine",
 		"CtrlW": "deleteWord",
+		"CtrlO": "openEditor",
 		"Tab":   "nextView",
 		"CtrlJ": "nextView",
 		"CtrlK": "prevView",
@@ -103,6 +105,7 @@ var DefaultConfig = Config{
 		FollowRedirects:        true,
 		StatusLine:             "[wuzz {{.Version}}]{{if .Duration}} [Response time: {{.Duration}}]{{end}}",
 		DefaultURLScheme:       "https",
+		Editor:                 "vim",
 	},
 }
 
@@ -116,6 +119,10 @@ func LoadConfig(configFile string) (*Config, error) {
 	conf := DefaultConfig
 	if _, err := toml.DecodeFile(configFile, &conf); err != nil {
 		return nil, err
+	}
+
+	if os.Getenv("EDITOR") != "" {
+		conf.General.Editor = os.Getenv("EDITOR")
 	}
 
 	if conf.Keys == nil {
