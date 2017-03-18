@@ -109,6 +109,12 @@ var DefaultConfig = Config{
 	},
 }
 
+func init() {
+	if os.Getenv("EDITOR") != "" {
+		DefaultConfig.General.Editor = os.Getenv("EDITOR")
+	}
+}
+
 func LoadConfig(configFile string) (*Config, error) {
 	if _, err := os.Stat(configFile); os.IsNotExist(err) {
 		return nil, errors.New("Config file does not exist.")
@@ -119,10 +125,6 @@ func LoadConfig(configFile string) (*Config, error) {
 	conf := DefaultConfig
 	if _, err := toml.DecodeFile(configFile, &conf); err != nil {
 		return nil, err
-	}
-
-	if os.Getenv("EDITOR") != "" {
-		conf.General.Editor = os.Getenv("EDITOR")
 	}
 
 	if conf.Keys == nil {
