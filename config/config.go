@@ -35,16 +35,16 @@ type Config struct {
 }
 
 type GeneralOptions struct {
-	Timeout                Duration
+	DefaultURLScheme       string
+	Editor                 string
+	FollowRedirects        bool
 	FormatJSON             bool
 	Insecure               bool
 	PreserveScrollPosition bool
-	FollowRedirects        bool
-	DefaultURLScheme       string
 	StatusLine             string
-	TLSVersionMin          uint16
 	TLSVersionMax          uint16
-	Editor                 string
+	TLSVersionMin          uint16
+	Timeout                Duration
 }
 
 var defaultTimeoutDuration, _ = time.ParseDuration("1m")
@@ -96,16 +96,16 @@ var DefaultKeys = map[string]map[string]string{
 
 var DefaultConfig = Config{
 	General: GeneralOptions{
-		Timeout: Duration{
-			defaultTimeoutDuration,
-		},
+		DefaultURLScheme:       "https",
+		Editor:                 "vim",
+		FollowRedirects:        true,
 		FormatJSON:             true,
 		Insecure:               false,
 		PreserveScrollPosition: true,
-		FollowRedirects:        true,
 		StatusLine:             "[wuzz {{.Version}}]{{if .Duration}} [Response time: {{.Duration}}]{{end}}",
-		DefaultURLScheme:       "https",
-		Editor:                 "vim",
+		Timeout: Duration{
+			defaultTimeoutDuration,
+		},
 	},
 }
 

@@ -1636,10 +1636,10 @@ Usage: wuzz [-H|--header HEADER]... [-d|--data|--data-binary DATA] [-X|--request
 Other command line options:
   -c, --config PATH        Specify custom configuration file
   -e, --editor EDITOR      Specify external editor command
-  -h, --help               Show this
-  -j, --json JSON          Add JSON request data and set related request headers
   -F, --form DATA          Add multipart form request data and set related request headers
                            If the value starts with @ it will be handled as a file path for upload
+  -h, --help               Show this
+  -j, --json JSON          Add JSON request data and set related request headers
   -k, --insecure           Allow insecure SSL certs
   -R, --disable-redirects  Do not follow HTTP redirects
   -T, --tls MIN,MAX        Restrict allowed TLS versions (values: SSL3.0,TLS1.0,TLS1.1,TLS1.2)
