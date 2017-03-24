@@ -916,7 +916,8 @@ func (a *App) PrintBody(g *gocui.Gui) {
 		if search_text == "" || !responseFormatter.Searchable() {
 			err := responseFormatter.Format(vrb, req.RawResponseBody)
 			if err != nil {
-				return err
+				fmt.Fprintf(vrb, "Error: cannot decode response body: %v", err)
+				return nil
 			}
 			if _, err := vrb.Line(0); !a.config.General.PreserveScrollPosition || err != nil {
 				vrb.SetOrigin(0, 0)
