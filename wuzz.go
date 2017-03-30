@@ -819,6 +819,11 @@ func (a *App) SubmitRequest(g *gocui.Gui, _ *gocui.View) error {
 		}
 		req.Header = headers
 
+		// set the `Host` header
+		if headers.Get("Host") != "" {
+			req.Host = headers.Get("Host")
+		}
+
 		// do request
 		start := time.Now()
 		response, err := CLIENT.Do(req)
