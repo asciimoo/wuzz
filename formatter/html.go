@@ -2,6 +2,7 @@ package formatter
 
 import (
 	"bytes"
+	"errors"
 	"io"
 
 	"github.com/x86kernel/htmlcolor"
