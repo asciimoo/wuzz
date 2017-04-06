@@ -16,6 +16,10 @@ $ go get github.com/asciimoo/wuzz
 $ "$GOPATH/bin/wuzz" --help
 ```
 
+Note: golang >= 1.7 required.
+
+[Binary releases](https://github.com/asciimoo/wuzz/releases) are also available.
+
 
 ### Configuration
 
@@ -55,10 +59,8 @@ Keybinding                              | Description
 
 ## TODO
 
-* Colors
 * Response specific filters (xpath, etc..)
 * Better navigation
-* File upload
 * Autocompletion
 * Tests
 
