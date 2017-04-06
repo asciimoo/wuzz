@@ -6,6 +6,7 @@ import (
 
 	"github.com/asciimoo/wuzz/config"
 	"github.com/nwidger/jsoncolor"
+	"github.com/x86kernel/htmlcolor"
 )
 
 func TestFormat(t *testing.T) {
@@ -17,18 +18,22 @@ func TestFormat(t *testing.T) {
 
 	var htmlBuffer bytes.Buffer
 	New(configFixture(true), "text/html; charset=utf-8").Format(&htmlBuffer, []byte("<html><span>unfomatted</span></html>"))
-	if htmlBuffer.String() != "<html><span>unfomatted</span></html>" {
+	var htmltargetBuffer bytes.Buffer
+	htmlcolor.NewFormatter().Format(&htmltargetBuffer, []byte("<html><span>unfomatted</span></html>"))
+	htmltarget := htmltargetBuffer.String()
+
+	if htmlBuffer.String() != htmltarget {
 		t.Error("Expected html to eq " + htmlBuffer.String())
 	}
 
 	var jsonEnabledBuffer bytes.Buffer
 	New(configFixture(true), "application/json; charset=utf-8").Format(&jsonEnabledBuffer, []byte("{\"json\": \"some value\"}"))
-	var targetBuffer bytes.Buffer
-	jsoncolor.NewFormatter().Format(&targetBuffer, []byte("{\"json\": \"some value\"}"))
-	target := targetBuffer.String()
+	var jsontargetBuffer bytes.Buffer
+	jsoncolor.NewFormatter().Format(&jsontargetBuffer, []byte("{\"json\": \"some value\"}"))
+	jsontarget := jsontargetBuffer.String()
 
-	if jsonEnabledBuffer.String() != target {
-		t.Error("Expected json to eq \n" + jsonEnabledBuffer.String() + "\nbut not\n" + target)
+	if jsonEnabledBuffer.String() != jsontarget {
+		t.Error("Expected json to eq \n" + jsonEnabledBuffer.String() + "\nbut not\n" + jsontarget)
 	}
 
 	var jsonDisabledBuffer bytes.Buffer
