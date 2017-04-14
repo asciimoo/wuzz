@@ -121,9 +121,17 @@ var COMMANDS map[string]func(string, *App) CommandFunc = map[string]func(string,
 		}
 	},
 	"toggleContextSpecificSearch": func(_ string, a *App) CommandFunc {
-		return func(g *gocui.Gui, v *gocui.View) error {
+		return func(g *gocui.Gui, _ *gocui.View) error {
 			a.config.General.ContextSpecificSearch = !a.config.General.ContextSpecificSearch
 			a.PrintBody(g)
+			return nil
+		}
+	},
+	"clearHistory": func(_ string, a *App) CommandFunc {
+		return func(g *gocui.Gui, _ *gocui.View) error {
+			a.history = make([]*Request, 0, 31)
+			a.historyIndex = 0
+			a.Layout(g)
 			return nil
 		}
 	},
