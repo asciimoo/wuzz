@@ -268,6 +268,8 @@ var METHODS = []string{
 
 const DEFAULT_METHOD = http.MethodGet
 
+var DEFAULT_FORMATTER = &formatter.TextFormatter{}
+
 var CLIENT = &http.Client{
 	Timeout: time.Duration(TIMEOUT_DURATION * time.Second),
 }
@@ -310,6 +312,7 @@ type Request struct {
 	RawResponseBody []byte
 	ContentType     string
 	Duration        time.Duration
+	Formatter       formatter.ResponseFormatter
 }
 
 type App struct {
@@ -914,7 +917,13 @@ func (a *App) PrintBody(g *gocui.Gui) {
 		vrb, _ := g.View(RESPONSE_BODY_VIEW)
 		vrb.Clear()
 
-		responseFormatter := formatter.New(a.config, req.ContentType)
+		var responseFormatter formatter.ResponseFormatter
+
+		if req.Formatter == nil {
+			req.Formatter = formatter.New(a.config, req.ContentType)
+		}
+		responseFormatter = req.Formatter
+
 		vrb.Title = VIEW_PROPERTIES[vrb.Name()].title + " " + responseFormatter.Title()
 
 		search_text := getViewValue(g, "search")
@@ -929,13 +938,15 @@ func (a *App) PrintBody(g *gocui.Gui) {
 			}
 			return nil
 		}
+		if !a.config.General.ContextSpecificSearch {
+			responseFormatter = DEFAULT_FORMATTER
+		}
 		vrb.SetOrigin(0, 0)
-		search_re, err := regexp.Compile(search_text)
+		results, err := responseFormatter.Search(search_text, req.RawResponseBody)
 		if err != nil {
-			fmt.Fprint(vrb, "Error: invalid search regexp")
+			fmt.Fprint(vrb, "Search error: ", err)
 			return nil
 		}
-		results := search_re.FindAll(req.RawResponseBody, 1000)
 		if len(results) == 0 {
 			vrb.Title = "No results"
 			fmt.Fprint(vrb, "Error: no results")

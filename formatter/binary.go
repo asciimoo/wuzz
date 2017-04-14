@@ -2,6 +2,7 @@ package formatter
 
 import (
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"io"
 )
@@ -20,4 +21,8 @@ func (f *binaryFormatter) Title() string {
 
 func (f *binaryFormatter) Searchable() bool {
 	return false
+}
+
+func (f *binaryFormatter) Search(q string, body []byte) ([]string, error) {
+	return nil, errors.New("Cannot perform search on binary content type")
 }

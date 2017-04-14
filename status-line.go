@@ -39,6 +39,16 @@ func (s *StatusLineFunctions) RequestNumber() string {
 	return strconv.Itoa(i)
 }
 
+func (s *StatusLineFunctions) SearchType() string {
+	if len(s.app.history) > 0 && !s.app.history[s.app.historyIndex].Formatter.Searchable() {
+		return "none"
+	}
+	if s.app.config.General.ContextSpecificSearch {
+		return "response specific"
+	}
+	return "regex"
+}
+
 func (s *StatusLine) Update(v *gocui.View, a *App) {
 	v.Clear()
 	err := s.tpl.Execute(v, &StatusLineFunctions{app: a})

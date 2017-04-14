@@ -35,6 +35,7 @@ type Config struct {
 }
 
 type GeneralOptions struct {
+	ContextSpecificSearch  bool
 	DefaultURLScheme       string
 	Editor                 string
 	FollowRedirects        bool
@@ -58,6 +59,7 @@ var DefaultKeys = map[string]map[string]string{
 		"CtrlD": "deleteLine",
 		"CtrlW": "deleteWord",
 		"CtrlO": "openEditor",
+		"CtrlT": "toggleContextSpecificSearch",
 		"Tab":   "nextView",
 		"CtrlJ": "nextView",
 		"CtrlK": "prevView",
@@ -102,7 +104,7 @@ var DefaultConfig = Config{
 		FormatJSON:             true,
 		Insecure:               false,
 		PreserveScrollPosition: true,
-		StatusLine:             "[wuzz {{.Version}}]{{if .Duration}} [Response time: {{.Duration}}]{{end}}",
+		StatusLine:             "[wuzz {{.Version}}]{{if .Duration}} [Response time: {{.Duration}}]{{end}}] [Request no.: {{.RequestNumber}}/{{.HistorySize}}] [Search type: {{.SearchType}}]",
 		Timeout: Duration{
 			defaultTimeoutDuration,
 		},

@@ -9,7 +9,7 @@ import (
 )
 
 type htmlFormatter struct {
-	textFormatter
+	TextFormatter
 }
 
 func (f *htmlFormatter) Format(writer io.Writer, data []byte) error {

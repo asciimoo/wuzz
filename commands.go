@@ -119,7 +119,13 @@ var COMMANDS map[string]func(string, *App) CommandFunc = map[string]func(string,
 		return func(g *gocui.Gui, v *gocui.View) error {
 			return openEditor(g, v, a.config.General.Editor)
 		}
-
+	},
+	"toggleContextSpecificSearch": func(_ string, a *App) CommandFunc {
+		return func(g *gocui.Gui, v *gocui.View) error {
+			a.config.General.ContextSpecificSearch = !a.config.General.ContextSpecificSearch
+			a.PrintBody(g)
+			return nil
+		}
 	},
 }
 
