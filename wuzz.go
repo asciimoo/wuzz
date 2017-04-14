@@ -863,6 +863,8 @@ func (a *App) SubmitRequest(g *gocui.Gui, _ *gocui.View) error {
 			r.RawResponseBody = bodyBytes
 		}
 
+		r.Formatter = formatter.New(a.config, r.ContentType)
+
 		// add to history
 		a.history = append(a.history, r)
 		a.historyIndex = len(a.history) - 1
@@ -918,10 +920,6 @@ func (a *App) PrintBody(g *gocui.Gui) {
 		vrb.Clear()
 
 		var responseFormatter formatter.ResponseFormatter
-
-		if req.Formatter == nil {
-			req.Formatter = formatter.New(a.config, req.ContentType)
-		}
 		responseFormatter = req.Formatter
 
 		vrb.Title = VIEW_PROPERTIES[vrb.Name()].title + " " + responseFormatter.Title()
