@@ -1550,7 +1550,7 @@ func (a *App) ParseArgs(g *gocui.Gui, args []string) error {
 		default:
 			u := args[arg_index]
 			if strings.Index(u, "http://") != 0 && strings.Index(u, "https://") != 0 {
-				u = "http://" + u
+				u = fmt.Sprintf("%v://%v", a.config.General.DefaultURLScheme, u)
 			}
 			parsed_url, err := url.Parse(u)
 			if err != nil || parsed_url.Host == "" {
