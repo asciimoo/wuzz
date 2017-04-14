@@ -51,7 +51,7 @@ type GeneralOptions struct {
 var defaultTimeoutDuration, _ = time.ParseDuration("1m")
 
 var DefaultKeys = map[string]map[string]string{
-	"global": map[string]string{
+	"global": {
 		"CtrlR": "submit",
 		"CtrlC": "quit",
 		"CtrlS": "saveResponse",
@@ -73,22 +73,22 @@ var DefaultKeys = map[string]map[string]string{
 		"F8":    "focus response-headers",
 		"F9":    "focus response-body",
 	},
-	"url": map[string]string{
+	"url": {
 		"Enter": "submit",
 	},
-	"response-headers": map[string]string{
+	"response-headers": {
 		"ArrowUp":   "scrollUp",
 		"ArrowDown": "scrollDown",
 		"PageUp":    "pageUp",
 		"PageDown":  "pageDown",
 	},
-	"response-body": map[string]string{
+	"response-body": {
 		"ArrowUp":   "scrollUp",
 		"ArrowDown": "scrollDown",
 		"PageUp":    "pageUp",
 		"PageDown":  "pageDown",
 	},
-	"help": map[string]string{
+	"help": {
 		"ArrowUp":   "scrollUp",
 		"ArrowDown": "scrollDown",
 		"PageUp":    "pageUp",

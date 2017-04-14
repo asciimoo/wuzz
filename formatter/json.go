@@ -5,8 +5,8 @@ import (
 	"errors"
 	"io"
 
-	"github.com/tidwall/gjson"
 	"github.com/nwidger/jsoncolor"
+	"github.com/tidwall/gjson"
 )
 
 type jsonFormatter struct {
@@ -31,7 +31,7 @@ func (f *jsonFormatter) Title() string {
 
 func (f *jsonFormatter) Search(q string, body []byte) ([]string, error) {
 	if q != "" {
-		if f.parsedBody.Type != gjson.JSON  {
+		if f.parsedBody.Type != gjson.JSON {
 			f.parsedBody = gjson.ParseBytes(body)
 		}
 		searchResult := f.parsedBody.Get(q)
