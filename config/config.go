@@ -105,7 +105,7 @@ var DefaultConfig = Config{
 		FormatJSON:             true,
 		Insecure:               false,
 		PreserveScrollPosition: true,
-		StatusLine:             "[wuzz {{.Version}}]{{if .Duration}} [Response time: {{.Duration}}]{{end}}] [Request no.: {{.RequestNumber}}/{{.HistorySize}}] [Search type: {{.SearchType}}]",
+		StatusLine:             "[wuzz {{.Version}}]{{if .Duration}} [Response time: {{.Duration}}]{{end}} [Request no.: {{.RequestNumber}}/{{.HistorySize}}] [Search type: {{.SearchType}}]",
 		Timeout: Duration{
 			defaultTimeoutDuration,
 		},
