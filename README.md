@@ -12,6 +12,7 @@ browser's network inspector with the "copy as cURL" feature.
 ## Installation and usage
 
 ```
+$ go get -u github.com/nsf/termbox-go
 $ go get github.com/asciimoo/wuzz
 $ "$GOPATH/bin/wuzz" --help
 ```
