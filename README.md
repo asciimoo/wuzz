@@ -62,6 +62,7 @@ Keybinding                              | Description
 * Response specific filters (xpath, etc..)
 * Better navigation
 * Autocompletion
+* Save session / load from a csv file
 * Tests
 
 
