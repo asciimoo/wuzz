@@ -9,6 +9,7 @@ os:
 env:
   - "PATH=/home/travis/gopath/bin:$PATH"
 script:
+  - test -z "$(go get -a)"
   - test -z "$(gofmt -l ./)"
   - test -z "$(go vet -v ./...)"
   - go test ./...
