@@ -1359,6 +1359,7 @@ func (a *App) ParseArgs(g *gocui.Gui, args []string) error {
 	arg_index := 1
 	args_len := len(args)
 	accept_types := make([]string, 0, 8)
+	var body_data []string
 	for arg_index < args_len {
 		arg := args[arg_index]
 		switch arg {
@@ -1369,7 +1370,7 @@ func (a *App) ParseArgs(g *gocui.Gui, args []string) error {
 			arg_index += 1
 			header := args[arg_index]
 			fmt.Fprintf(vheader, "%v\n", header)
-		case "-d", "--data", "--data-binary":
+		case "-d", "--data", "--data-binary", "--data-urlencode":
 			if arg_index == args_len-1 {
 				return errors.New("No POST/PUT/PATCH value specified")
 			}
@@ -1377,14 +1378,19 @@ func (a *App) ParseArgs(g *gocui.Gui, args []string) error {
 			arg_index += 1
 			set_data = true
 			set_binary_data = arg == "--data-binary"
+			arg_data := args[arg_index]
 
-			data := args[arg_index]
 			if !set_binary_data {
-				data, _ = url.QueryUnescape(data)
 				content_type = "form"
 			}
-			vdata, _ := g.View(REQUEST_DATA_VIEW)
-			setViewTextAndCursor(vdata, data)
+
+			if arg == "--data-urlencode" {
+				// TODO: Replace with `url.PathEscape(..)` in Go 1.8
+				arg_data_url := &url.URL{Path: arg_data}
+				arg_data = arg_data_url.String()
+			}
+
+			body_data = append(body_data, arg_data)
 		case "-j", "--json":
 			if arg_index == args_len-1 {
 				return errors.New("No POST/PUT/PATCH value specified")
@@ -1580,6 +1586,14 @@ func (a *App) ParseArgs(g *gocui.Gui, args []string) error {
 	if len(accept_types) > 0 && !a.hasHeader(g, "Accept") {
 		fmt.Fprintf(vheader, "Accept: %v\n", strings.Join(accept_types, ","))
 	}
+
+	var merged_body_data string
+	if set_data && !set_binary_data {
+		merged_body_data = strings.Join(body_data, "&")
+	}
+
+	vdata, _ := g.View(REQUEST_DATA_VIEW)
+	setViewTextAndCursor(vdata, merged_body_data)
 
 	return nil
 }
