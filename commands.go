@@ -46,6 +46,28 @@ var COMMANDS map[string]func(string, *App) CommandFunc = map[string]func(string,
 				})
 		}
 	},
+	"loadRequest": func(_ string, a *App) CommandFunc {
+		return func(g *gocui.Gui, _ *gocui.View) error {
+			return a.OpenSaveDialog(VIEW_TITLES[LOAD_REQUEST_DIALOG_VIEW], g,
+				func(g *gocui.Gui, _ *gocui.View) error {
+					defer a.closePopup(g, SAVE_DIALOG_VIEW)
+					loadLocation := getViewValue(g, SAVE_DIALOG_VIEW)
+
+					requestJson, ioErr := ioutil.ReadFile(loadLocation)
+					if ioErr != nil {
+						return ioErr
+					}
+
+					var requestMap map[string]string
+					jsonErr := json.Unmarshal(requestJson, &requestMap)
+					if jsonErr != nil {
+						return jsonErr
+					}
+
+					return a.LoadRequest(g, requestMap)
+				})
+		}
+	},
 	"saveRequest": func(_ string, a *App) CommandFunc {
 		return func(g *gocui.Gui, _ *gocui.View) error {
 			return a.OpenSaveDialog(VIEW_TITLES[SAVE_REQUEST_DIALOG_VIEW], g,

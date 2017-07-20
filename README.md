@@ -39,6 +39,8 @@ Keybinding                              | Description
 <kbd>Ctrl+R</kbd>                       | Send request
 <kbd>Ret</kbd>                          | Send request (only from URL view)
 <kbd>Ctrl+S</kbd>                       | Save response
+<kbd>Ctrl+E</kbd>                       | Save request
+<kbd>Ctrl+F</kbd>                       | Load request
 <kbd>Ctrl+C</kbd>                       | Quit
 <kbd>Ctrl+K</kbd>, <kbd>Shift+Tab</kbd> | Previous view
 <kbd>Ctlr+J</kbd>, <kbd>Tab</kbd>       | Next view
