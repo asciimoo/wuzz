@@ -378,6 +378,30 @@ func (e *ViewEditor) Edit(v *gocui.View, key gocui.Key, ch rune, mod gocui.Modif
 			return
 		}
 	}
+         if key == gocui.KeyHome {
+                 _, cY := v.Cursor()
+                 _, oY := v.Origin()
+                 v.SetCursor(0, cY)
+                 v.SetOrigin(0, oY)
+
+         }
+         if key == gocui.KeyEnd {
+                 width, _ := v.Size()
+                 _, cY := v.Cursor()
+                 l, err := v.Line(cY)
+		 if err != nil {
+			 return
+		 }
+                 lineWidth := len(l)
+                 if lineWidth > width {
+                         _, oY := v.Origin()
+                         v.SetOrigin(lineWidth-width, oY)
+                         lineWidth = width - 1
+                 }
+                 v.SetCursor(lineWidth, cY)
+                 return
+         }
+	
 
 	e.origEditor.Edit(v, key, ch, mod)
 }
