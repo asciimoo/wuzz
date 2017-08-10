@@ -1174,7 +1174,7 @@ func (a *App) CreatePopupView(name string, width, height int, g *gocui.Gui) (v *
 func (a *App) LoadRequest(g *gocui.Gui, loadLocation string) (err error) {
 	requestJson, ioErr := ioutil.ReadFile(loadLocation)
 	if ioErr != nil {
-		return ioErr
+		return nil
 	}
 
 	var requestMap map[string]string
