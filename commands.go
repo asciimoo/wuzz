@@ -52,19 +52,7 @@ var COMMANDS map[string]func(string, *App) CommandFunc = map[string]func(string,
 				func(g *gocui.Gui, _ *gocui.View) error {
 					defer a.closePopup(g, SAVE_DIALOG_VIEW)
 					loadLocation := getViewValue(g, SAVE_DIALOG_VIEW)
-
-					requestJson, ioErr := ioutil.ReadFile(loadLocation)
-					if ioErr != nil {
-						return ioErr
-					}
-
-					var requestMap map[string]string
-					jsonErr := json.Unmarshal(requestJson, &requestMap)
-					if jsonErr != nil {
-						return jsonErr
-					}
-
-					return a.LoadRequest(g, requestMap)
+					return a.LoadRequest(g, loadLocation)
 				})
 		}
 	},

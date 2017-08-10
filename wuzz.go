@@ -1171,7 +1171,18 @@ func (a *App) CreatePopupView(name string, width, height int, g *gocui.Gui) (v *
 	return
 }
 
-func (a *App) LoadRequest(g *gocui.Gui, requestMap map[string]string) (err error) {
+func (a *App) LoadRequest(g *gocui.Gui, loadLocation string) (err error) {
+	requestJson, ioErr := ioutil.ReadFile(loadLocation)
+	if ioErr != nil {
+		return ioErr
+	}
+
+	var requestMap map[string]string
+	jsonErr := json.Unmarshal(requestJson, &requestMap)
+	if jsonErr != nil {
+		return jsonErr
+	}
+
 	var v *gocui.View
 	url, exists := requestMap[URL_VIEW]
 	if exists {
@@ -1547,17 +1558,8 @@ func (a *App) ParseArgs(g *gocui.Gui, args []string) error {
 				return errors.New("-f or --file requires a file path be provided as an argument")
 			}
 			arg_index += 1
-			requestJson, ioErr := ioutil.ReadFile(args[arg_index])
-			if ioErr != nil {
-				return ioErr
-			}
-			var requestMap map[string]string
-			jsonErr := json.Unmarshal(requestJson, &requestMap)
-			if jsonErr != nil {
-				return jsonErr
-			}
-
-			a.LoadRequest(g, requestMap)
+			loadLocation := args[arg_index]
+			a.LoadRequest(g, loadLocation)
 		default:
 			u := args[arg_index]
 			if strings.Index(u, "http://") != 0 && strings.Index(u, "https://") != 0 {
