@@ -1,7 +1,7 @@
 language: go
 go:
   - 1.7.5
-  - tip # latest
+  - 1.8.3
 os:
   - linux
   # remove osx, getting vm from travis is extremely slow
