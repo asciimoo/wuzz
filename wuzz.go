@@ -1174,13 +1174,25 @@ func (a *App) CreatePopupView(name string, width, height int, g *gocui.Gui) (v *
 func (a *App) LoadRequest(g *gocui.Gui, loadLocation string) (err error) {
 	requestJson, ioErr := ioutil.ReadFile(loadLocation)
 	if ioErr != nil {
+		g.Execute(func(g *gocui.Gui) error {
+			vrb, _ := g.View(RESPONSE_BODY_VIEW)
+			vrb.Clear()
+			fmt.Fprintf(vrb, "File reading error: %v", ioErr)
+			return nil
+		})
 		return nil
 	}
 
 	var requestMap map[string]string
 	jsonErr := json.Unmarshal(requestJson, &requestMap)
 	if jsonErr != nil {
-		return jsonErr
+		g.Execute(func(g *gocui.Gui) error {
+			vrb, _ := g.View(RESPONSE_BODY_VIEW)
+			vrb.Clear()
+			fmt.Fprintf(vrb, "JSON decoding error: %v", jsonErr)
+			return nil
+		})
+		return nil
 	}
 
 	var v *gocui.View
