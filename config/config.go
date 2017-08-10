@@ -55,6 +55,7 @@ var DefaultKeys = map[string]map[string]string{
 		"CtrlR": "submit",
 		"CtrlC": "quit",
 		"CtrlS": "saveResponse",
+		"CtrlF": "loadRequest",
 		"CtrlE": "saveRequest",
 		"CtrlD": "deleteLine",
 		"CtrlW": "deleteWord",

@@ -58,6 +58,7 @@ const (
 	HISTORY_VIEW              = "history"
 	SAVE_DIALOG_VIEW          = "save-dialog"
 	SAVE_RESPONSE_DIALOG_VIEW = "save-response-dialog"
+	LOAD_REQUEST_DIALOG_VIEW  = "load-request-dialog"
 	SAVE_REQUEST_DIALOG_VIEW  = "save-request-dialog"
 	SAVE_RESULT_VIEW          = "save-result"
 	METHOD_LIST_VIEW          = "method-list"
@@ -69,6 +70,7 @@ var VIEW_TITLES = map[string]string{
 	ERROR_VIEW:                "Error",
 	HISTORY_VIEW:              "History",
 	SAVE_RESPONSE_DIALOG_VIEW: "Save Response (enter to submit, ctrl+q to cancel)",
+	LOAD_REQUEST_DIALOG_VIEW:  "Load Request (enter to submit, ctrl+q to cancel)",
 	SAVE_REQUEST_DIALOG_VIEW:  "Save Request (enter to submit, ctrl+q to cancel)",
 	SAVE_RESULT_VIEW:          "Save Result (press enter to close)",
 	METHOD_LIST_VIEW:          "Methods",
@@ -1169,6 +1171,63 @@ func (a *App) CreatePopupView(name string, width, height int, g *gocui.Gui) (v *
 	return
 }
 
+func (a *App) LoadRequest(g *gocui.Gui, loadLocation string) (err error) {
+	requestJson, ioErr := ioutil.ReadFile(loadLocation)
+	if ioErr != nil {
+		g.Execute(func(g *gocui.Gui) error {
+			vrb, _ := g.View(RESPONSE_BODY_VIEW)
+			vrb.Clear()
+			fmt.Fprintf(vrb, "File reading error: %v", ioErr)
+			return nil
+		})
+		return nil
+	}
+
+	var requestMap map[string]string
+	jsonErr := json.Unmarshal(requestJson, &requestMap)
+	if jsonErr != nil {
+		g.Execute(func(g *gocui.Gui) error {
+			vrb, _ := g.View(RESPONSE_BODY_VIEW)
+			vrb.Clear()
+			fmt.Fprintf(vrb, "JSON decoding error: %v", jsonErr)
+			return nil
+		})
+		return nil
+	}
+
+	var v *gocui.View
+	url, exists := requestMap[URL_VIEW]
+	if exists {
+		v, _ = g.View(URL_VIEW)
+		setViewTextAndCursor(v, url)
+	}
+
+	method, exists := requestMap[REQUEST_METHOD_VIEW]
+	if exists {
+		v, _ = g.View(REQUEST_METHOD_VIEW)
+		setViewTextAndCursor(v, method)
+	}
+
+	params, exists := requestMap[URL_PARAMS_VIEW]
+	if exists {
+		v, _ = g.View(URL_PARAMS_VIEW)
+		setViewTextAndCursor(v, params)
+	}
+
+	data, exists := requestMap[REQUEST_DATA_VIEW]
+	if exists {
+		v, _ = g.View(REQUEST_DATA_VIEW)
+		setViewTextAndCursor(v, data)
+	}
+
+	headers, exists := requestMap[REQUEST_HEADERS_VIEW]
+	if exists {
+		v, _ = g.View(REQUEST_HEADERS_VIEW)
+		setViewTextAndCursor(v, headers)
+	}
+	return nil
+}
+
 func (a *App) ToggleHistory(g *gocui.Gui, _ *gocui.View) (err error) {
 	// Destroy if present
 	if a.currentPopup == HISTORY_VIEW {
@@ -1511,46 +1570,8 @@ func (a *App) ParseArgs(g *gocui.Gui, args []string) error {
 				return errors.New("-f or --file requires a file path be provided as an argument")
 			}
 			arg_index += 1
-			requestJson, ioErr := ioutil.ReadFile(args[arg_index])
-			if ioErr != nil {
-				return ioErr
-			}
-			var requestMap map[string]string
-			jsonErr := json.Unmarshal(requestJson, &requestMap)
-			if jsonErr != nil {
-				return jsonErr
-			}
-
-			var v *gocui.View
-			url, exists := requestMap[URL_VIEW]
-			if exists {
-				v, _ = g.View(URL_VIEW)
-				setViewTextAndCursor(v, url)
-			}
-
-			method, exists := requestMap[REQUEST_METHOD_VIEW]
-			if exists {
-				v, _ = g.View(REQUEST_METHOD_VIEW)
-				setViewTextAndCursor(v, method)
-			}
-
-			params, exists := requestMap[URL_PARAMS_VIEW]
-			if exists {
-				v, _ = g.View(URL_PARAMS_VIEW)
-				setViewTextAndCursor(v, params)
-			}
-
-			data, exists := requestMap[REQUEST_DATA_VIEW]
-			if exists {
-				v, _ = g.View(REQUEST_DATA_VIEW)
-				setViewTextAndCursor(v, data)
-			}
-
-			headers, exists := requestMap[REQUEST_HEADERS_VIEW]
-			if exists {
-				v, _ = g.View(REQUEST_HEADERS_VIEW)
-				setViewTextAndCursor(v, headers)
-			}
+			loadLocation := args[arg_index]
+			a.LoadRequest(g, loadLocation)
 		default:
 			u := args[arg_index]
 			if strings.Index(u, "http://") != 0 && strings.Index(u, "https://") != 0 {
@@ -1665,6 +1686,7 @@ Usage: wuzz [-H|--header HEADER]... [-d|--data|--data-binary DATA] [-X|--request
 Other command line options:
   -c, --config PATH        Specify custom configuration file
   -e, --editor EDITOR      Specify external editor command
+  -f, --file REQUEST       Load a previous request
   -F, --form DATA          Add multipart form request data and set related request headers
                            If the value starts with @ it will be handled as a file path for upload
   -h, --help               Show this
@@ -1684,6 +1706,8 @@ Other command line options:
 Key bindings:
   ctrl+r              Send request
   ctrl+s              Save response
+  ctrl+e              Save request
+  ctrl+f              Load request
   tab, ctrl+j         Next window
   shift+tab, ctrl+k   Previous window
   alt+h               Show history
