@@ -471,7 +471,7 @@ func (e *AutocompleteEditor) Edit(v *gocui.View, key gocui.Key, ch rune, mod goc
 
 func (e *SearchEditor) Edit(v *gocui.View, key gocui.Key, ch rune, mod gocui.Modifier) {
 	e.wuzzEditor.Edit(v, key, ch, mod)
-	e.wuzzEditor.g.Execute(func(g *gocui.Gui) error {
+	e.wuzzEditor.g.Update(func(g *gocui.Gui) error {
 		e.wuzzEditor.app.PrintBody(g)
 		return nil
 	})
@@ -713,7 +713,7 @@ func (a *App) SubmitRequest(g *gocui.Gui, _ *gocui.View) error {
 		r.Url = getViewValue(g, URL_VIEW)
 		u, err := url.Parse(r.Url)
 		if err != nil {
-			g.Execute(func(g *gocui.Gui) error {
+			g.Update(func(g *gocui.Gui) error {
 				vrb, _ := g.View(RESPONSE_BODY_VIEW)
 				fmt.Fprintf(vrb, "URL parse error: %v", err)
 				return nil
@@ -723,7 +723,7 @@ func (a *App) SubmitRequest(g *gocui.Gui, _ *gocui.View) error {
 
 		q, err := url.ParseQuery(strings.Replace(getViewValue(g, URL_PARAMS_VIEW), "\n", "&", -1))
 		if err != nil {
-			g.Execute(func(g *gocui.Gui) error {
+			g.Update(func(g *gocui.Gui) error {
 				vrb, _ := g.View(RESPONSE_BODY_VIEW)
 				fmt.Fprintf(vrb, "Invalid GET parameters: %v", err)
 				return nil
@@ -748,7 +748,7 @@ func (a *App) SubmitRequest(g *gocui.Gui, _ *gocui.View) error {
 			if header != "" {
 				header_parts := strings.SplitN(header, ": ", 2)
 				if len(header_parts) != 2 {
-					g.Execute(func(g *gocui.Gui) error {
+					g.Update(func(g *gocui.Gui) error {
 						vrb, _ := g.View(RESPONSE_BODY_VIEW)
 						fmt.Fprintf(vrb, "Invalid header: %v", header)
 						return nil
@@ -782,7 +782,7 @@ func (a *App) SubmitRequest(g *gocui.Gui, _ *gocui.View) error {
 						if len([]rune(postValues[i])) > 0 && postValues[i][0] == '@' {
 							file, err := os.Open(postValues[i][1:])
 							if err != nil {
-								g.Execute(func(g *gocui.Gui) error {
+								g.Update(func(g *gocui.Gui) error {
 									vrb, _ := g.View(RESPONSE_BODY_VIEW)
 									fmt.Fprintf(vrb, "Error: %v", err)
 									return nil
@@ -815,7 +815,7 @@ func (a *App) SubmitRequest(g *gocui.Gui, _ *gocui.View) error {
 		// create request
 		req, err := http.NewRequest(r.Method, u.String(), body)
 		if err != nil {
-			g.Execute(func(g *gocui.Gui) error {
+			g.Update(func(g *gocui.Gui) error {
 				vrb, _ := g.View(RESPONSE_BODY_VIEW)
 				fmt.Fprintf(vrb, "Request error: %v", err)
 				return nil
@@ -834,7 +834,7 @@ func (a *App) SubmitRequest(g *gocui.Gui, _ *gocui.View) error {
 		response, err := CLIENT.Do(req)
 		r.Duration = time.Since(start)
 		if err != nil {
-			g.Execute(func(g *gocui.Gui) error {
+			g.Update(func(g *gocui.Gui) error {
 				vrb, _ := g.View(RESPONSE_BODY_VIEW)
 				fmt.Fprintf(vrb, "Response error: %v", err)
 				return nil
@@ -851,7 +851,7 @@ func (a *App) SubmitRequest(g *gocui.Gui, _ *gocui.View) error {
 				defer reader.Close()
 				response.Body = reader
 			} else {
-				g.Execute(func(g *gocui.Gui) error {
+				g.Update(func(g *gocui.Gui) error {
 					vrb, _ := g.View(RESPONSE_BODY_VIEW)
 					fmt.Fprintf(vrb, "Cannot uncompress response: %v", err)
 					return nil
@@ -872,7 +872,7 @@ func (a *App) SubmitRequest(g *gocui.Gui, _ *gocui.View) error {
 		a.historyIndex = len(a.history) - 1
 
 		// render response
-		g.Execute(func(g *gocui.Gui) error {
+		g.Update(func(g *gocui.Gui) error {
 			vrh, _ := g.View(RESPONSE_HEADERS_VIEW)
 
 			a.PrintBody(g)
@@ -910,7 +910,7 @@ func (a *App) SubmitRequest(g *gocui.Gui, _ *gocui.View) error {
 }
 
 func (a *App) PrintBody(g *gocui.Gui) {
-	g.Execute(func(g *gocui.Gui) error {
+	g.Update(func(g *gocui.Gui) error {
 		if len(a.history) == 0 {
 			return nil
 		}
@@ -1174,7 +1174,7 @@ func (a *App) CreatePopupView(name string, width, height int, g *gocui.Gui) (v *
 func (a *App) LoadRequest(g *gocui.Gui, loadLocation string) (err error) {
 	requestJson, ioErr := ioutil.ReadFile(loadLocation)
 	if ioErr != nil {
-		g.Execute(func(g *gocui.Gui) error {
+		g.Update(func(g *gocui.Gui) error {
 			vrb, _ := g.View(RESPONSE_BODY_VIEW)
 			vrb.Clear()
 			fmt.Fprintf(vrb, "File reading error: %v", ioErr)
@@ -1186,7 +1186,7 @@ func (a *App) LoadRequest(g *gocui.Gui, loadLocation string) (err error) {
 	var requestMap map[string]string
 	jsonErr := json.Unmarshal(requestJson, &requestMap)
 	if jsonErr != nil {
-		g.Execute(func(g *gocui.Gui) error {
+		g.Update(func(g *gocui.Gui) error {
 			vrb, _ := g.View(RESPONSE_BODY_VIEW)
 			vrb.Clear()
 			fmt.Fprintf(vrb, "JSON decoding error: %v", jsonErr)
