@@ -269,7 +269,7 @@ func openEditor(g *gocui.Gui, v *gocui.View, editor string) error {
 	err = cmd.Run()
 	// sync termbox to reset console settings
 	// this is required because the external editor can modify the console
-	defer g.Execute(func(_ *gocui.Gui) error {
+	defer g.Update(func(_ *gocui.Gui) error {
 		termbox.Sync()
 		return nil
 	})
