@@ -732,7 +732,9 @@ func (a *App) SubmitRequest(g *gocui.Gui, _ *gocui.View) error {
 		}
 		originalQuery := u.Query()
 		for k, v := range q {
-			originalQuery.Add(k, strings.Join(v, ""))
+			for _, qp := range v {
+				originalQuery.Add(k, qp)
+			}
 		}
 		u.RawQuery = originalQuery.Encode()
 		r.GetParams = u.RawQuery
@@ -1587,7 +1589,9 @@ func (a *App) ParseArgs(g *gocui.Gui, args []string) error {
 			vurl, _ := g.View(URL_VIEW)
 			vurl.Clear()
 			for k, v := range parsed_url.Query() {
-				fmt.Fprintf(vget, "%v=%v\n", k, strings.Join(v, ""))
+				for _, vv := range v {
+					fmt.Fprintf(vget, "%v=%v\n", k, vv)
+				}
 			}
 			parsed_url.RawQuery = ""
 			setViewTextAndCursor(vurl, parsed_url.String())
