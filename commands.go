@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -57,38 +56,7 @@ var COMMANDS map[string]func(string, *App) CommandFunc = map[string]func(string,
 		}
 	},
 	"saveRequest": func(_ string, a *App) CommandFunc {
-		return func(g *gocui.Gui, _ *gocui.View) error {
-			return a.OpenSaveDialog(VIEW_TITLES[SAVE_REQUEST_DIALOG_VIEW], g,
-				func(g *gocui.Gui, _ *gocui.View) error {
-					defer a.closePopup(g, SAVE_DIALOG_VIEW)
-					saveLocation := getViewValue(g, SAVE_DIALOG_VIEW)
-
-					var requestMap map[string]string
-					requestMap = make(map[string]string)
-					requestMap[URL_VIEW] = getViewValue(g, URL_VIEW)
-					requestMap[REQUEST_METHOD_VIEW] = getViewValue(g, REQUEST_METHOD_VIEW)
-					requestMap[URL_PARAMS_VIEW] = getViewValue(g, URL_PARAMS_VIEW)
-					requestMap[REQUEST_DATA_VIEW] = getViewValue(g, REQUEST_DATA_VIEW)
-					requestMap[REQUEST_HEADERS_VIEW] = getViewValue(g, REQUEST_HEADERS_VIEW)
-
-					requestJson, err := json.Marshal(requestMap)
-					if err != nil {
-						return err
-					}
-
-					ioerr := ioutil.WriteFile(saveLocation, []byte(requestJson), 0644)
-
-					var saveResult string
-					if ioerr == nil {
-						saveResult = "Request saved successfully."
-					} else {
-						saveResult = "Error saving request: " + err.Error()
-					}
-					viewErr := a.OpenSaveResultView(saveResult, g)
-
-					return viewErr
-				})
-		}
+		return a.SaveRequest
 	},
 	"history": func(_ string, a *App) CommandFunc {
 		return a.ToggleHistory

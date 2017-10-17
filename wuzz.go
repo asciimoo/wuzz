@@ -51,30 +51,32 @@ const (
 	RESPONSE_HEADERS_VIEW = "response-headers"
 	RESPONSE_BODY_VIEW    = "response-body"
 
-	SEARCH_PROMPT_VIEW        = "prompt"
-	POPUP_VIEW                = "popup_view"
-	AUTOCOMPLETE_VIEW         = "autocomplete_view"
-	ERROR_VIEW                = "error_view"
-	HISTORY_VIEW              = "history"
-	SAVE_DIALOG_VIEW          = "save-dialog"
-	SAVE_RESPONSE_DIALOG_VIEW = "save-response-dialog"
-	LOAD_REQUEST_DIALOG_VIEW  = "load-request-dialog"
-	SAVE_REQUEST_DIALOG_VIEW  = "save-request-dialog"
-	SAVE_RESULT_VIEW          = "save-result"
-	METHOD_LIST_VIEW          = "method-list"
-	HELP_VIEW                 = "help"
+	SEARCH_PROMPT_VIEW              = "prompt"
+	POPUP_VIEW                      = "popup_view"
+	AUTOCOMPLETE_VIEW               = "autocomplete_view"
+	ERROR_VIEW                      = "error_view"
+	HISTORY_VIEW                    = "history"
+	SAVE_DIALOG_VIEW                = "save-dialog"
+	SAVE_RESPONSE_DIALOG_VIEW       = "save-response-dialog"
+	LOAD_REQUEST_DIALOG_VIEW        = "load-request-dialog"
+	SAVE_REQUEST_FORMAT_DIALOG_VIEW = "save-request-format-dialog"
+	SAVE_REQUEST_DIALOG_VIEW        = "save-request-dialog"
+	SAVE_RESULT_VIEW                = "save-result"
+	METHOD_LIST_VIEW                = "method-list"
+	HELP_VIEW                       = "help"
 )
 
 var VIEW_TITLES = map[string]string{
-	POPUP_VIEW:                "Info",
-	ERROR_VIEW:                "Error",
-	HISTORY_VIEW:              "History",
-	SAVE_RESPONSE_DIALOG_VIEW: "Save Response (enter to submit, ctrl+q to cancel)",
-	LOAD_REQUEST_DIALOG_VIEW:  "Load Request (enter to submit, ctrl+q to cancel)",
-	SAVE_REQUEST_DIALOG_VIEW:  "Save Request (enter to submit, ctrl+q to cancel)",
-	SAVE_RESULT_VIEW:          "Save Result (press enter to close)",
-	METHOD_LIST_VIEW:          "Methods",
-	HELP_VIEW:                 "Help",
+	POPUP_VIEW:                      "Info",
+	ERROR_VIEW:                      "Error",
+	HISTORY_VIEW:                    "History",
+	SAVE_RESPONSE_DIALOG_VIEW:       "Save Response (enter to submit, ctrl+q to cancel)",
+	LOAD_REQUEST_DIALOG_VIEW:        "Load Request (enter to submit, ctrl+q to cancel)",
+	SAVE_REQUEST_DIALOG_VIEW:        "Save Request (enter to submit, ctrl+q to cancel)",
+	SAVE_REQUEST_FORMAT_DIALOG_VIEW: "Choose export format",
+	SAVE_RESULT_VIEW:                "Save Result (press enter to close)",
+	METHOD_LIST_VIEW:                "Methods",
+	HELP_VIEW:                       "Help",
 }
 
 type position struct {
@@ -266,6 +268,20 @@ var METHODS = []string{
 	http.MethodTrace,
 	http.MethodConnect,
 	http.MethodHead,
+}
+
+var EXPORT_FORMATS = []struct {
+	name   string
+	export func(r Request) []byte
+}{
+	{
+		name:   "JSON",
+		export: exportJSON,
+	},
+	{
+		name:   "curl",
+		export: exportCurl,
+	},
 }
 
 const DEFAULT_METHOD = http.MethodGet
@@ -1123,6 +1139,8 @@ func (a *App) SetKeys(g *gocui.Gui) error {
 		a.closePopup(g, METHOD_LIST_VIEW)
 		return nil
 	})
+	g.SetKeybinding(SAVE_REQUEST_FORMAT_DIALOG_VIEW, gocui.KeyArrowDown, gocui.ModNone, cursDown)
+	g.SetKeybinding(SAVE_REQUEST_FORMAT_DIALOG_VIEW, gocui.KeyArrowUp, gocui.ModNone, cursUp)
 
 	g.SetKeybinding(SAVE_DIALOG_VIEW, gocui.KeyCtrlQ, gocui.ModNone, func(g *gocui.Gui, v *gocui.View) error {
 		a.closePopup(g, SAVE_DIALOG_VIEW)
@@ -1264,6 +1282,68 @@ func (a *App) ToggleHistory(g *gocui.Gui, _ *gocui.View) (err error) {
 	g.SetViewOnTop(HISTORY_VIEW)
 	g.SetCurrentView(HISTORY_VIEW)
 	history.SetCursor(0, a.historyIndex)
+	return
+}
+
+func (a *App) SaveRequest(g *gocui.Gui, _ *gocui.View) (err error) {
+	// Destroy if present
+	if a.currentPopup == SAVE_REQUEST_FORMAT_DIALOG_VIEW {
+		a.closePopup(g, SAVE_REQUEST_FORMAT_DIALOG_VIEW)
+		return
+	}
+	// Create the view listing the possible formats
+	popup, err := a.CreatePopupView(SAVE_REQUEST_FORMAT_DIALOG_VIEW, 30, len(EXPORT_FORMATS), g)
+	if err != nil {
+		return err
+	}
+
+	popup.Title = VIEW_TITLES[SAVE_REQUEST_FORMAT_DIALOG_VIEW]
+
+	// Populate the popup witht the available formats
+	for _, r := range EXPORT_FORMATS {
+		fmt.Fprintln(popup, r.name)
+	}
+
+	g.SetViewOnTop(SAVE_REQUEST_FORMAT_DIALOG_VIEW)
+	g.SetCurrentView(SAVE_REQUEST_FORMAT_DIALOG_VIEW)
+	popup.SetCursor(0, 0)
+
+	// Bind the enter key, when the format is chosen, save the choice and open
+	// the save popup
+	g.SetKeybinding(SAVE_REQUEST_FORMAT_DIALOG_VIEW, gocui.KeyEnter, gocui.ModNone, func(g *gocui.Gui, v *gocui.View) error {
+		// Save the format index
+		_, format := v.Cursor()
+		// Open the Save popup
+		return a.OpenSaveDialog(VIEW_TITLES[SAVE_REQUEST_DIALOG_VIEW], g,
+			func(g *gocui.Gui, _ *gocui.View) error {
+				defer a.closePopup(g, SAVE_DIALOG_VIEW)
+				saveLocation := getViewValue(g, SAVE_DIALOG_VIEW)
+
+				r := Request{
+					Url:       getViewValue(g, URL_VIEW),
+					Method:    getViewValue(g, REQUEST_METHOD_VIEW),
+					GetParams: getViewValue(g, URL_PARAMS_VIEW),
+					Data:      getViewValue(g, REQUEST_DATA_VIEW),
+					Headers:   getViewValue(g, REQUEST_HEADERS_VIEW),
+				}
+
+				// Export the request using the chosent format
+				request := EXPORT_FORMATS[format].export(r)
+
+				// Write the file
+				ioerr := ioutil.WriteFile(saveLocation, []byte(request), 0644)
+
+				saveResult := fmt.Sprintf("Request saved successfully in %s", EXPORT_FORMATS[format].name)
+				if ioerr != nil {
+					saveResult = "Error saving request: " + ioerr.Error()
+				}
+				viewErr := a.OpenSaveResultView(saveResult, g)
+
+				return viewErr
+			},
+		)
+	})
+
 	return
 }
 
@@ -1799,4 +1879,34 @@ func main() {
 	if err := g.MainLoop(); err != nil && err != gocui.ErrQuit {
 		log.Panicln(err)
 	}
+}
+
+func exportJSON(r Request) []byte {
+	requestMap := map[string]string{
+		URL_VIEW:             r.Url,
+		REQUEST_METHOD_VIEW:  r.Method,
+		URL_PARAMS_VIEW:      r.GetParams,
+		REQUEST_DATA_VIEW:    r.Data,
+		REQUEST_HEADERS_VIEW: r.Headers,
+	}
+
+	request, err := json.Marshal(requestMap)
+	if err != nil {
+		return []byte{}
+	}
+	return request
+}
+
+func exportCurl(r Request) []byte {
+	var headers, params string
+	for _, header := range strings.Split(r.Headers, "\n") {
+		if header == "" {
+			continue
+		}
+		headers = fmt.Sprintf("%s -H '%s'", headers, header)
+	}
+	if r.GetParams != "" {
+		params = fmt.Sprintf("?%s", r.GetParams)
+	}
+	return []byte(fmt.Sprintf("curl %s -X %s -d '%s' %s%s\n", headers, r.Method, r.Data, r.Url, params))
 }
