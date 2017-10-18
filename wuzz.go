@@ -27,6 +27,7 @@ import (
 	"github.com/asciimoo/wuzz/config"
 	"github.com/asciimoo/wuzz/formatter"
 
+	"github.com/alessio/shellescape"
 	"github.com/jroimartin/gocui"
 	"github.com/mattn/go-runewidth"
 	"github.com/nsf/termbox-go"
@@ -1903,10 +1904,10 @@ func exportCurl(r Request) []byte {
 		if header == "" {
 			continue
 		}
-		headers = fmt.Sprintf("%s -H '%s'", headers, header)
+		headers = fmt.Sprintf("%s -H %s", headers, shellescape.Quote(header))
 	}
 	if r.GetParams != "" {
 		params = fmt.Sprintf("?%s", r.GetParams)
 	}
-	return []byte(fmt.Sprintf("curl %s -X %s -d '%s' %s%s\n", headers, r.Method, r.Data, r.Url, params))
+	return []byte(fmt.Sprintf("curl %s -X %s -d %s %s\n", headers, r.Method, shellescape.Quote(r.Data), shellescape.Quote(r.Url+params)))
 }
