@@ -61,7 +61,6 @@ Keybinding                              | Description
 
 ## TODO
 
-* Response specific filters (xpath, etc..)
 * Better navigation
 * Autocompletion
 * Tests
