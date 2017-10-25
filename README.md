@@ -44,6 +44,7 @@ Keybinding                              | Description
 <kbd>Ctrl+C</kbd>                       | Quit
 <kbd>Ctrl+K</kbd>, <kbd>Shift+Tab</kbd> | Previous view
 <kbd>Ctlr+J</kbd>, <kbd>Tab</kbd>       | Next view
+<kbd>Ctlr+T</kbd>                       | Toggle context specific search
 <kbd>Alt+H</kbd>                        | Toggle history
 <kbd>Down</kbd>                         | Move down one view line
 <kbd>Up</kbd>                           | Move up one view line
@@ -57,6 +58,18 @@ Keybinding                              | Description
 <kbd>F7</kbd>                           | Jump to search
 <kbd>F8</kbd>                           | Jump to response headers
 <kbd>F9</kbd>                           | Jump to response body
+
+
+### Context specific search
+
+Wuzz accepts regular expressions by default to filter response body.
+Custom query syntax can be toggled by pressing <kbd>Ctrl+T</kbd>.
+The following formats have context specific search syntax:
+
+Response format  | Query syntax
+-----------------|----------------------------------------
+HTML             | https://github.com/PuerkitoBio/goquery
+JSON             | https://github.com/tidwall/gjson
 
 
 ## TODO
