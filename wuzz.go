@@ -1237,8 +1237,12 @@ func (a *App) LoadRequest(g *gocui.Gui, loadLocation string) (err error) {
 
 	data, exists := requestMap[REQUEST_DATA_VIEW]
 	if exists {
-		v, _ = g.View(REQUEST_DATA_VIEW)
-		setViewTextAndCursor(v, data)
+		g.Update(func(g *gocui.Gui) error {
+			v, _ = g.View(REQUEST_DATA_VIEW)
+			v.Clear()
+			fmt.Fprintf(v, "%v", data)
+			return nil
+		})
 	}
 
 	headers, exists := requestMap[REQUEST_HEADERS_VIEW]
