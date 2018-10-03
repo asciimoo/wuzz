@@ -715,19 +715,17 @@ func showAutocomplete(completions []string, left, top, maxWidth, maxHeight int, 
 	}
 }
 
-func extractSortedHeaders(h http.Header) string {
+func writeSortedHeaders(output io.Writer, h http.Header) {
 	hkeys := make([]string, 0, len(h))
 	for hname := range h {
 		hkeys = append(hkeys, hname)
 	}
+
 	sort.Strings(hkeys)
 
-	var header_str string
 	for _, hname := range hkeys {
-		header_str += fmt.Sprintf("\x1b[0;33m%v:\x1b[0;0m %v\n", hname, strings.Join(h[hname], ","))
+		fmt.Fprintf(output, "\x1b[0;33m%v:\x1b[0;0m %v\n", hname, strings.Join(h[hname], ","))
 	}
-
-	return header_str
 }
 
 func (a *App) SubmitRequest(g *gocui.Gui, _ *gocui.View) error {
@@ -916,24 +914,28 @@ func (a *App) SubmitRequest(g *gocui.Gui, _ *gocui.View) error {
 			if response.StatusCode != 200 {
 				status_color = 31
 			}
-			header_str := fmt.Sprintf(
+			header := &strings.Builder{}
+			fmt.Fprintf(
+				header,
 				"\x1b[0;%dmHTTP/1.1 %v %v\x1b[0;0m\n",
 				status_color,
 				response.StatusCode,
 				http.StatusText(response.StatusCode),
 			)
 
-			// print sorted headers
-			header_str += extractSortedHeaders(response.Header)
+			writeSortedHeaders(header, response.Header)
 
-			// print sorted trailers
-			header_str += extractSortedHeaders(response.Trailer)
+			// According to the Go documentation, the Trailer maps trailer
+			// keys to values in the same format as Header
+			writeSortedHeaders(header, response.Trailer)
 
-			fmt.Fprint(vrh, header_str)
+			r.ResponseHeaders = header.String()
+
+			fmt.Fprint(vrh, r.ResponseHeaders)
 			if _, err := vrh.Line(0); err != nil {
 				vrh.SetOrigin(0, 0)
 			}
-			r.ResponseHeaders = header_str
+
 			return nil
 		})
 		return nil
