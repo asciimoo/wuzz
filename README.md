@@ -16,7 +16,7 @@ $ go get github.com/asciimoo/wuzz
 $ "$GOPATH/bin/wuzz" --help
 ```
 
-Note: golang >= 1.7 required.
+Note: golang >= 1.10 required.
 
 [Binary releases](https://github.com/asciimoo/wuzz/releases) are also available.
 
