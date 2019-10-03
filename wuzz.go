@@ -613,10 +613,7 @@ func (a *App) Layout(g *gocui.Gui) error {
 			setViewProperties(v, name)
 		}
 	}
-	sv, _ := g.View(STATUSLINE_VIEW)
-	sv.BgColor = gocui.ColorDefault | gocui.AttrReverse
-	sv.FgColor = gocui.ColorDefault | gocui.AttrReverse
-	a.statusLine.Update(sv, a)
+	refreshStatusLine(a, g)
 
 	return nil
 }
@@ -1096,6 +1093,12 @@ func (a *App) SetKeys(g *gocui.Gui) error {
 		}
 		g.SetViewOnTop(HELP_VIEW)
 		g.SetCurrentView(HELP_VIEW)
+		return nil
+	})
+
+	g.SetKeybinding(ALL_VIEWS, gocui.KeyF12, gocui.ModNone, func(g *gocui.Gui, v *gocui.View) error {
+		a.config.General.FollowRedirects = !a.config.General.FollowRedirects
+		refreshStatusLine(a, g)
 		return nil
 	})
 
@@ -1749,11 +1752,19 @@ func (a *App) InitConfig() {
 		MinVersion:         a.config.General.TLSVersionMin,
 		MaxVersion:         a.config.General.TLSVersionMax,
 	}
-	if !a.config.General.FollowRedirects {
-		CLIENT.CheckRedirect = func(_ *http.Request, _ []*http.Request) error {
-			return http.ErrUseLastResponse
+	CLIENT.CheckRedirect = func(_ *http.Request, _ []*http.Request) error {
+		if a.config.General.FollowRedirects {
+			return nil
 		}
+		return http.ErrUseLastResponse
 	}
+}
+
+func refreshStatusLine(a *App, g *gocui.Gui) {
+	sv, _ := g.View(STATUSLINE_VIEW)
+	sv.BgColor = gocui.ColorDefault | gocui.AttrReverse
+	sv.FgColor = gocui.ColorDefault | gocui.AttrReverse
+	a.statusLine.Update(sv, a)
 }
 
 func initApp(a *App, g *gocui.Gui) {

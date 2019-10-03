@@ -57,6 +57,13 @@ func (s *StatusLine) Update(v *gocui.View, a *App) {
 	}
 }
 
+func (s *StatusLineFunctions) DisableRedirect() string {
+	if s.app.config.General.FollowRedirects {
+		return ""
+	}
+	return "Actived"
+}
+
 func NewStatusLine(format string) (*StatusLine, error) {
 	tpl, err := template.New("status line").Parse(format)
 	if err != nil {
