@@ -1,6 +1,6 @@
 # wuzz
 
-Interactive cli tool for HTTP inspection
+Interactive cli tool for HTTP inspection.
 
 Wuzz command line arguments are similar to cURL's arguments,
 so it can be used to inspect/modify requests copied from the
