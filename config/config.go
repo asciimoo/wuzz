@@ -74,6 +74,7 @@ var DefaultKeys = map[string]map[string]string{
 		"F7":    "focus search",
 		"F8":    "focus response-headers",
 		"F9":    "focus response-body",
+		"F12":   "redirects restriction mode",
 	},
 	"url": {
 		"Enter": "submit",
@@ -106,7 +107,7 @@ var DefaultConfig = Config{
 		FormatJSON:             true,
 		Insecure:               false,
 		PreserveScrollPosition: true,
-		StatusLine:             "[wuzz {{.Version}}]{{if .Duration}} [Response time: {{.Duration}}]{{end}} [Request no.: {{.RequestNumber}}/{{.HistorySize}}] [Search type: {{.SearchType}}]",
+		StatusLine:             "[wuzz {{.Version}}]{{if .Duration}} [Response time: {{.Duration}}]{{end}} [Request no.: {{.RequestNumber}}/{{.HistorySize}}] [Search type: {{.SearchType}}]{{if .DisableRedirect}} [Redirects Restricted Mode {{.DisableRedirect}}]{{end}}",
 		Timeout: Duration{
 			defaultTimeoutDuration,
 		},

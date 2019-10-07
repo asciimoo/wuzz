@@ -58,6 +58,7 @@ Keybinding                              | Description
 <kbd>F7</kbd>                           | Jump to search
 <kbd>F8</kbd>                           | Jump to response headers
 <kbd>F9</kbd>                           | Jump to response body
+<kbd>F12</kbd>                          | Redirects Restriction Mode
 
 
 ### Context specific search
