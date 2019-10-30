@@ -80,7 +80,7 @@ JSON             | https://github.com/tidwall/gjson
 * Tests
 
 
-## Bugs
+## Bugs / Suggestions
 
 Bugs or suggestions? Visit the [issue tracker](https://github.com/asciimoo/wuzz/issues)
 or join `#wuzz` on freenode
