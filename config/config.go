@@ -74,7 +74,7 @@ var DefaultKeys = map[string]map[string]string{
 		"F7":    "focus search",
 		"F8":    "focus response-headers",
 		"F9":    "focus response-body",
-		"F12":   "redirectRestriction",
+		"F11":   "redirectRestriction",
 	},
 	"url": {
 		"Enter": "submit",
