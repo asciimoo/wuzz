@@ -113,6 +113,12 @@ var COMMANDS map[string]func(string, *App) CommandFunc = map[string]func(string,
 			return nil
 		}
 	},
+	"redirectRestriction": func(_ string, a *App) CommandFunc {
+		return func(g *gocui.Gui, _ *gocui.View) error {
+			a.config.General.FollowRedirects = !a.config.General.FollowRedirects
+			return nil
+		}
+	},
 }
 
 func scrollView(v *gocui.View, dy int) error {
