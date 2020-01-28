@@ -61,7 +61,7 @@ func (s *StatusLineFunctions) DisableRedirect() string {
 	if s.app.config.General.FollowRedirects {
 		return ""
 	}
-	return "Actived"
+	return "Activated"
 }
 
 func NewStatusLine(format string) (*StatusLine, error) {

@@ -1096,7 +1096,7 @@ func (a *App) SetKeys(g *gocui.Gui) error {
 		return nil
 	})
 
-	g.SetKeybinding(ALL_VIEWS, gocui.KeyF12, gocui.ModNone, func(g *gocui.Gui, v *gocui.View) error {
+	g.SetKeybinding(ALL_VIEWS, gocui.KeyF11, gocui.ModNone, func(g *gocui.Gui, v *gocui.View) error {
 		a.config.General.FollowRedirects = !a.config.General.FollowRedirects
 		refreshStatusLine(a, g)
 		return nil
