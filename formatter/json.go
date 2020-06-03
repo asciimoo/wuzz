@@ -16,6 +16,7 @@ type jsonFormatter struct {
 
 func (f *jsonFormatter) Format(writer io.Writer, data []byte) error {
 	jsonFormatter := jsoncolor.NewFormatter()
+	jsonFormatter.Indent = "  "
 	buf := bytes.NewBuffer(make([]byte, 0, len(data)))
 	err := jsonFormatter.Format(buf, data)
 	if err == nil {
@@ -44,6 +45,7 @@ func (f *jsonFormatter) Search(q string, body []byte) ([]string, error) {
 		body = []byte(searchResult.String())
 	}
 	jsonFormatter := jsoncolor.NewFormatter()
+	jsonFormatter.Indent = "  "
 	buf := bytes.NewBuffer(make([]byte, 0, len(body)))
 	err := jsonFormatter.Format(buf, body)
 	if err != nil {
