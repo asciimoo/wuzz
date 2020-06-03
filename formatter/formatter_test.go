@@ -29,7 +29,9 @@ func TestFormat(t *testing.T) {
 	var jsonEnabledBuffer bytes.Buffer
 	New(configFixture(true), "application/json; charset=utf-8").Format(&jsonEnabledBuffer, []byte("{\"json\": \"some value\"}"))
 	var jsontargetBuffer bytes.Buffer
-	jsoncolor.NewFormatter().Format(&jsontargetBuffer, []byte("{\"json\": \"some value\"}"))
+	f := jsoncolor.NewFormatter()
+	f.Indent = "  "
+	f.Format(&jsontargetBuffer, []byte("{\"json\": \"some value\"}"))
 	jsontarget := jsontargetBuffer.String()
 
 	if jsonEnabledBuffer.String() != jsontarget {
