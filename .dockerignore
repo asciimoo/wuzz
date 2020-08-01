@@ -1,0 +1,8 @@
+**
+
+!config
+!formatter
+!*.go
+!go.mod
+!sample-config.toml
+!docker-entrypoint.sh
