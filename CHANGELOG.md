@@ -1,3 +1,11 @@
+## 0.5.0 2020.01.19
+
+ - Added context specific search for HTML (goquery)
+ - Request data displayed in request history
+ - Fixed JSON indentation
+ - Redirect toggle command Added
+ - Multiple minor bug fixes
+
 ## 0.4.0 2017.08.21
 
  - Save/load requests (`-f`/`--file` flags for loading)
