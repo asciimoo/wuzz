@@ -1,11 +1,15 @@
 language: go
 go:
-  - 1.10.x
+  - 1.12.x #Update go version
   - tip
 os:
   - linux
   # remove osx, getting vm from travis is extremely slow
   # - osx
+  
+arch:
+  - amd64
+  - ppc64le
 env:
   - "PATH=/home/travis/gopath/bin:$PATH"
 script:
