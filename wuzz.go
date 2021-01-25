@@ -773,6 +773,7 @@ func (a *App) SubmitRequest(g *gocui.Gui, _ *gocui.View) error {
 		headers := http.Header{}
 		headers.Set("User-Agent", "")
 		r.Headers = getViewValue(g, REQUEST_HEADERS_VIEW)
+		TRANSPORT.ForceAttemptHTTP2 = false
 		for _, header := range strings.Split(r.Headers, "\n") {
 			if header != "" {
 				header_parts := strings.SplitN(header, ": ", 2)
@@ -783,6 +784,12 @@ func (a *App) SubmitRequest(g *gocui.Gui, _ *gocui.View) error {
 						return nil
 					})
 					return nil
+				}
+				if header_parts[0] == "ForceAttemptHTTP2" {
+					switch strings.ToLower(header_parts[1])[0] {
+					case 't', 'y':
+						TRANSPORT.ForceAttemptHTTP2 = true
+					}
 				}
 				headers.Set(header_parts[0], header_parts[1])
 			}
