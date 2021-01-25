@@ -775,8 +775,8 @@ func (a *App) SubmitRequest(g *gocui.Gui, _ *gocui.View) error {
 		r.Headers = getViewValue(g, REQUEST_HEADERS_VIEW)
 		for _, header := range strings.Split(r.Headers, "\n") {
 			if header != "" {
-				header_parts := strings.SplitN(header, ": ", 2)
-				if len(header_parts) != 2 {
+				headerParts := strings.SplitN(header, ": ", 2)
+				if len(headerParts) != 2 {
 					g.Update(func(g *gocui.Gui) error {
 						vrb, _ := g.View(RESPONSE_BODY_VIEW)
 						fmt.Fprintf(vrb, "Invalid header: %v", header)
@@ -784,7 +784,7 @@ func (a *App) SubmitRequest(g *gocui.Gui, _ *gocui.View) error {
 					})
 					return nil
 				}
-				headers.Set(header_parts[0], header_parts[1])
+				headers.Set(headerParts[0], headerParts[1])
 			}
 		}
 
@@ -908,15 +908,15 @@ func (a *App) SubmitRequest(g *gocui.Gui, _ *gocui.View) error {
 			a.PrintBody(g)
 
 			// print status code
-			status_color := 32
+			statusColor := 32
 			if response.StatusCode != 200 {
-				status_color = 31
+				statusColor = 31
 			}
 			header := &strings.Builder{}
 			fmt.Fprintf(
 				header,
 				"\x1b[0;%dmHTTP/1.1 %v %v\x1b[0;0m\n",
-				status_color,
+				statusColor,
 				response.StatusCode,
 				http.StatusText(response.StatusCode),
 			)
@@ -959,8 +959,8 @@ func (a *App) PrintBody(g *gocui.Gui) {
 
 		vrb.Title = VIEW_PROPERTIES[vrb.Name()].title + " " + responseFormatter.Title()
 
-		search_text := getViewValue(g, "search")
-		if search_text == "" || !responseFormatter.Searchable() {
+		searchText := getViewValue(g, "search")
+		if searchText == "" || !responseFormatter.Searchable() {
 			err := responseFormatter.Format(vrb, req.RawResponseBody)
 			if err != nil {
 				fmt.Fprintf(vrb, "Error: cannot decode response body: %v", err)
@@ -975,7 +975,7 @@ func (a *App) PrintBody(g *gocui.Gui) {
 			responseFormatter = DEFAULT_FORMATTER
 		}
 		vrb.SetOrigin(0, 0)
-		results, err := responseFormatter.Search(search_text, req.RawResponseBody)
+		results, err := responseFormatter.Search(searchText, req.RawResponseBody)
 		if err != nil {
 			fmt.Fprint(vrb, "Search error: ", err)
 			return nil
@@ -1292,17 +1292,17 @@ func (a *App) ToggleHistory(g *gocui.Gui, _ *gocui.View) (err error) {
 		return
 	}
 	for i, r := range a.history {
-		req_str := fmt.Sprintf("[%02d] %v %v", i, r.Method, r.Url)
+		reqStr := fmt.Sprintf("[%02d] %v %v", i, r.Method, r.Url)
 		if r.GetParams != "" {
-			req_str += fmt.Sprintf("?%v", strings.Replace(r.GetParams, "\n", "&", -1))
+			reqStr += fmt.Sprintf("?%v", strings.Replace(r.GetParams, "\n", "&", -1))
 		}
 		if r.Data != "" {
-			req_str += fmt.Sprintf(" %v", strings.Replace(r.Data, "\n", "&", -1))
+			reqStr += fmt.Sprintf(" %v", strings.Replace(r.Data, "\n", "&", -1))
 		}
 		if r.Headers != "" {
-			req_str += fmt.Sprintf(" %v", strings.Replace(r.Headers, "\n", ";", -1))
+			reqStr += fmt.Sprintf(" %v", strings.Replace(r.Headers, "\n", ";", -1))
 		}
-		fmt.Fprintln(history, req_str)
+		fmt.Fprintln(history, reqStr)
 	}
 	g.SetViewOnTop(HISTORY_VIEW)
 	g.SetCurrentView(HISTORY_VIEW)
@@ -1324,7 +1324,7 @@ func (a *App) SaveRequest(g *gocui.Gui, _ *gocui.View) (err error) {
 
 	popup.Title = VIEW_TITLES[SAVE_REQUEST_FORMAT_DIALOG_VIEW]
 
-	// Populate the popup witht the available formats
+	// Populate the popup with the available formats
 	for _, r := range EXPORT_FORMATS {
 		fmt.Fprintln(popup, r.name)
 	}
@@ -1518,75 +1518,75 @@ func (a *App) ParseArgs(g *gocui.Gui, args []string) error {
 	vheader.Clear()
 	vget, _ := g.View(URL_PARAMS_VIEW)
 	vget.Clear()
-	content_type := ""
-	set_data := false
-	set_method := false
-	set_binary_data := false
-	arg_index := 1
-	args_len := len(args)
-	accept_types := make([]string, 0, 8)
-	var body_data []string
-	for arg_index < args_len {
-		arg := args[arg_index]
+	contentType := ""
+	setData := false
+	setMethod := false
+	setBinaryData := false
+	argIndex := 1
+	argsLen := len(args)
+	acceptTypes := make([]string, 0, 8)
+	var bodyData []string
+	for argIndex < argsLen {
+		arg := args[argIndex]
 		switch arg {
 		case "-H", "--header":
-			if arg_index == args_len-1 {
+			if argIndex == argsLen-1 {
 				return errors.New("No header value specified")
 			}
-			arg_index += 1
-			header := args[arg_index]
+			argIndex += 1
+			header := args[argIndex]
 			fmt.Fprintf(vheader, "%v\n", header)
 		case "-d", "--data", "--data-binary", "--data-urlencode":
-			if arg_index == args_len-1 {
+			if argIndex == argsLen-1 {
 				return errors.New("No POST/PUT/PATCH value specified")
 			}
 
-			arg_index += 1
-			set_data = true
-			set_binary_data = arg == "--data-binary"
-			arg_data := args[arg_index]
+			argIndex += 1
+			setData = true
+			setBinaryData = arg == "--data-binary"
+			argData := args[argIndex]
 
-			if !set_binary_data {
-				content_type = "form"
+			if !setBinaryData {
+				contentType = "form"
 			}
 
 			if arg == "--data-urlencode" {
 				// TODO: Replace with `url.PathEscape(..)` in Go 1.8
-				arg_data_url := &url.URL{Path: arg_data}
-				arg_data = arg_data_url.String()
+				argDataUrl := &url.URL{Path: argData}
+				argData = argDataUrl.String()
 			}
 
-			body_data = append(body_data, arg_data)
+			bodyData = append(bodyData, argData)
 		case "-j", "--json":
-			if arg_index == args_len-1 {
+			if argIndex == argsLen-1 {
 				return errors.New("No POST/PUT/PATCH value specified")
 			}
 
-			arg_index += 1
-			json_str := args[arg_index]
-			content_type = "json"
-			accept_types = append(accept_types, config.ContentTypes["json"])
-			set_data = true
+			argIndex += 1
+			jsonStr := args[argIndex]
+			contentType = "json"
+			acceptTypes = append(acceptTypes, config.ContentTypes["json"])
+			setData = true
 			vdata, _ := g.View(REQUEST_DATA_VIEW)
-			setViewTextAndCursor(vdata, json_str)
+			setViewTextAndCursor(vdata, jsonStr)
 		case "-X", "--request":
-			if arg_index == args_len-1 {
+			if argIndex == argsLen-1 {
 				return errors.New("No HTTP method specified")
 			}
-			arg_index++
-			set_method = true
-			method := args[arg_index]
-			if content_type == "" && (method == http.MethodPost || method == http.MethodPut || method == http.MethodPatch) {
-				content_type = "form"
+			argIndex++
+			setMethod = true
+			method := args[argIndex]
+			if contentType == "" && (method == http.MethodPost || method == http.MethodPut || method == http.MethodPatch) {
+				contentType = "form"
 			}
 			vmethod, _ := g.View(REQUEST_METHOD_VIEW)
 			setViewTextAndCursor(vmethod, method)
 		case "-t", "--timeout":
-			if arg_index == args_len-1 {
+			if argIndex == argsLen-1 {
 				return errors.New("No timeout value specified")
 			}
-			arg_index += 1
-			timeout, err := strconv.Atoi(args[arg_index])
+			argIndex += 1
+			timeout, err := strconv.Atoi(args[argIndex])
 			if err != nil || timeout <= 0 {
 				return errors.New("Invalid timeout value")
 			}
@@ -1597,11 +1597,11 @@ func (a *App) ParseArgs(g *gocui.Gui, args []string) error {
 				fmt.Fprintln(vh, "Accept-Encoding: gzip, deflate")
 			}
 		case "-e", "--editor":
-			if arg_index == args_len-1 {
+			if argIndex == argsLen-1 {
 				return errors.New("No timeout value specified")
 			}
-			arg_index += 1
-			a.config.General.Editor = args[arg_index]
+			argIndex += 1
+			a.config.General.Editor = args[argIndex]
 		case "-k", "--insecure":
 			a.config.General.Insecure = true
 		case "-R", "--disable-redirects":
@@ -1619,11 +1619,11 @@ func (a *App) ParseArgs(g *gocui.Gui, args []string) error {
 			a.config.General.TLSVersionMin = tls.VersionTLS10
 			a.config.General.TLSVersionMax = tls.VersionTLS12
 		case "-T", "--tls":
-			if arg_index >= args_len-1 {
+			if argIndex >= argsLen-1 {
 				return errors.New("Missing TLS version range: MIN,MAX")
 			}
-			arg_index++
-			arg := args[arg_index]
+			argIndex++
+			arg := args[argIndex]
 			v := strings.Split(arg, ",")
 			min := v[0]
 			max := min
@@ -1641,10 +1641,10 @@ func (a *App) ParseArgs(g *gocui.Gui, args []string) error {
 			a.config.General.TLSVersionMin = minV
 			a.config.General.TLSVersionMax = maxV
 		case "-x", "--proxy":
-			if arg_index == args_len-1 {
+			if argIndex == argsLen-1 {
 				return errors.New("Missing proxy URL")
 			}
-			arg_index += 1
+			argIndex += 1
 			u, err := url.Parse(args[arg_index])
 			if err != nil {
 				return fmt.Errorf("Invalid proxy URL: %v", err)
@@ -1662,25 +1662,25 @@ func (a *App) ParseArgs(g *gocui.Gui, args []string) error {
 				return errors.New("Unknown proxy protocol")
 			}
 		case "-F", "--form":
-			if arg_index == args_len-1 {
+			if argIndex == argsLen-1 {
 				return errors.New("No POST/PUT/PATCH value specified")
 			}
 
-			arg_index += 1
-			form_str := args[arg_index]
-			content_type = "multipart"
-			set_data = true
+			argIndex += 1
+			formStr := args[argIndex]
+			contentType = "multipart"
+			setData = true
 			vdata, _ := g.View(REQUEST_DATA_VIEW)
-			setViewTextAndCursor(vdata, form_str)
+			setViewTextAndCursor(vdata, formStr)
 		case "-f", "--file":
-			if arg_index == args_len-1 {
+			if argIndex == argsLen-1 {
 				return errors.New("-f or --file requires a file path be provided as an argument")
 			}
-			arg_index += 1
-			loadLocation := args[arg_index]
+			argIndex += 1
+			loadLocation := args[argIndex]
 			a.LoadRequest(g, loadLocation)
 		default:
-			u := args[arg_index]
+			u := args[argIndex]
 			if strings.Index(u, "http://") != 0 && strings.Index(u, "https://") != 0 {
 				u = fmt.Sprintf("%v://%v", a.config.General.DefaultURLScheme, u)
 			}
@@ -1701,29 +1701,29 @@ func (a *App) ParseArgs(g *gocui.Gui, args []string) error {
 			parsed_url.RawQuery = ""
 			setViewTextAndCursor(vurl, parsed_url.String())
 		}
-		arg_index += 1
+		argIndex += 1
 	}
 
-	if set_data && !set_method {
+	if setData && !setMethod {
 		vmethod, _ := g.View(REQUEST_METHOD_VIEW)
 		setViewTextAndCursor(vmethod, http.MethodPost)
 	}
 
 	if !set_binary_data && content_type != "" && !a.hasHeader(g, "Content-Type") {
-		fmt.Fprintf(vheader, "Content-Type: %v\n", config.ContentTypes[content_type])
+		fmt.Fprintf(vheader, "Content-Type: %v\n", config.ContentTypes[contentType])
 	}
 
-	if len(accept_types) > 0 && !a.hasHeader(g, "Accept") {
-		fmt.Fprintf(vheader, "Accept: %v\n", strings.Join(accept_types, ","))
+	if len(acceptTypes) > 0 && !a.hasHeader(g, "Accept") {
+		fmt.Fprintf(vheader, "Accept: %v\n", strings.Join(acceptTypes, ","))
 	}
 
 	var merged_body_data string
-	if set_data && !set_binary_data {
-		merged_body_data = strings.Join(body_data, "&")
+	if setData && !setBinaryData {
+		mergedBodyData = strings.Join(bodyData, "&")
 	}
 
 	vdata, _ := g.View(REQUEST_DATA_VIEW)
-	setViewTextAndCursor(vdata, merged_body_data)
+	setViewTextAndCursor(vdata, mergedBodyData)
 
 	return nil
 }
@@ -1733,11 +1733,11 @@ func (a *App) hasHeader(g *gocui.Gui, h string) bool {
 		if header == "" {
 			continue
 		}
-		header_parts := strings.SplitN(header, ": ", 2)
-		if len(header_parts) != 2 {
+		headerParts := strings.SplitN(header, ": ", 2)
+		if len(headerParts) != 2 {
 			continue
 		}
-		if header_parts[0] == h {
+		if headerParts[0] == h {
 			return true
 		}
 	}
