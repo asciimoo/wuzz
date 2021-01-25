@@ -119,6 +119,17 @@ var COMMANDS map[string]func(string, *App) CommandFunc = map[string]func(string,
 			return nil
 		}
 	},
+	"clearTabs": func(_ string, a *App) CommandFunc {
+		return func(g *gocui.Gui, _ *gocui.View) error {
+			if a.currentPopup != "" {
+				return nil
+			}
+
+			a.restoreRequest(g, 0, true)
+			g.SetCurrentView(URL_VIEW)
+			return nil
+		}
+	},
 }
 
 func scrollView(v *gocui.View, dy int) error {
