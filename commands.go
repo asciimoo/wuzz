@@ -119,6 +119,9 @@ var COMMANDS map[string]func(string, *App) CommandFunc = map[string]func(string,
 			return nil
 		}
 	},
+	"requests": func(_ string, a *App) CommandFunc {
+		return a.ToggleRequests
+	},
 }
 
 func scrollView(v *gocui.View, dy int) error {
