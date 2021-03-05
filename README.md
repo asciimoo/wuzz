@@ -46,6 +46,7 @@ Keybinding                              | Description
 <kbd>Ctlr+J</kbd>, <kbd>Tab</kbd>       | Next view
 <kbd>Ctlr+T</kbd>                       | Toggle context specific search
 <kbd>Alt+H</kbd>                        | Toggle history
+<kbd>Ctrl+Q</kbd>                       | Toggle requests view
 <kbd>Down</kbd>                         | Move down one view line
 <kbd>Up</kbd>                           | Move up one view line
 <kbd>Page down</kbd>                    | Move down one view page

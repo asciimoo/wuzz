@@ -66,6 +66,7 @@ var DefaultKeys = map[string]map[string]string{
 		"CtrlJ": "nextView",
 		"CtrlK": "prevView",
 		"AltH":  "history",
+		"CtrlQ": "requests",
 		"F2":    "focus url",
 		"F3":    "focus get",
 		"F4":    "focus method",

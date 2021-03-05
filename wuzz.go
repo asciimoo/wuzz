@@ -65,6 +65,7 @@ const (
 	SAVE_RESULT_VIEW                = "save-result"
 	METHOD_LIST_VIEW                = "method-list"
 	HELP_VIEW                       = "help"
+	REQUESTS_VIEW                    = "requests"
 )
 
 var VIEW_TITLES = map[string]string{
@@ -341,6 +342,7 @@ type App struct {
 	history      []*Request
 	config       *config.Config
 	statusLine   *StatusLine
+	Requests []os.FileInfo
 }
 
 type ViewEditor struct {
@@ -1172,6 +1174,19 @@ func (a *App) SetKeys(g *gocui.Gui) error {
 		a.closePopup(g, SAVE_RESULT_VIEW)
 		return nil
 	})
+
+	g.SetKeybinding(REQUESTS_VIEW, gocui.KeyArrowDown, gocui.ModNone, cursDown)
+	g.SetKeybinding(REQUESTS_VIEW, gocui.KeyArrowUp, gocui.ModNone, cursUp)
+	g.SetKeybinding(REQUESTS_VIEW, gocui.KeyEnter, gocui.ModNone, func(g *gocui.Gui, v *gocui.View) error {
+		_, cy := v.Cursor()
+		// TODO error
+		if len(a.Requests) <= cy {
+			return nil
+		}
+		a.LoadRequest(g, a.Requests[cy].Name())
+		a.closePopup(g, REQUESTS_VIEW)
+		return nil
+	})
 	return nil
 }
 
@@ -1395,6 +1410,39 @@ func (a *App) ToggleMethodList(g *gocui.Gui, _ *gocui.View) (err error) {
 	}
 	g.SetViewOnTop(METHOD_LIST_VIEW)
 	g.SetCurrentView(METHOD_LIST_VIEW)
+	return
+}
+
+func (a *App) ToggleRequests(g *gocui.Gui, _ *gocui.View) (err error) {
+	// Destroy if present
+	if a.currentPopup == REQUESTS_VIEW {
+		a.closePopup(g, REQUESTS_VIEW)
+		return
+	}
+
+	dir, err := os.Getwd()
+	if err != nil {
+		return
+	}
+	files, err := ioutil.ReadDir(dir)
+	a.Requests = files
+	if err != nil {
+		return
+	}
+
+	requestsView, err := a.CreatePopupView(REQUESTS_VIEW, 100, len(files), g)
+	if err != nil {
+		return
+	}
+	requestsView.Title = VIEW_TITLES[REQUESTS_VIEW]
+	for _, r := range files {
+		if r.IsDir() {
+			continue
+		}
+		fmt.Fprintln(requestsView, r.Name())
+	}
+	g.SetViewOnTop(REQUESTS_VIEW)
+	g.SetCurrentView(REQUESTS_VIEW)
 	return
 }
 
