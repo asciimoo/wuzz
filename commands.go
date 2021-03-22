@@ -5,12 +5,15 @@ import (
 	"io/ioutil"
 	"os"
 	"os/exec"
+	"runtime"
 	"strings"
 	"unicode"
 
 	"github.com/jroimartin/gocui"
 	"github.com/nsf/termbox-go"
 )
+
+const MAC_OS = "darwin"
 
 type CommandFunc func(*gocui.Gui, *gocui.View) error
 
@@ -236,7 +239,13 @@ func openEditor(g *gocui.Gui, v *gocui.View, editor string) error {
 		return nil
 	}
 
-	cmd := exec.Command(editor, file.Name())
+	var cmd *exec.Cmd
+	// Some .vimrc files might not play nice. To play it safe, don't use them.
+	if editor == "vim" && runtime.GOOS == MAC_OS {
+		cmd = exec.Command(editor, "-u", "NONE", file.Name())
+	} else {
+		cmd = exec.Command(editor, file.Name())
+	}
 	cmd.Stdout = os.Stdout
 	cmd.Stdin = os.Stdin
 	cmd.Stderr = os.Stderr
