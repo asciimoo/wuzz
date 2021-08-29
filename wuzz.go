@@ -12,6 +12,7 @@ import (
 	"log"
 	"mime/multipart"
 	"net/http"
+	"net/http/httptrace"
 	"net/url"
 	"os"
 	"path"
@@ -65,6 +66,7 @@ const (
 	SAVE_RESULT_VIEW                = "save-result"
 	METHOD_LIST_VIEW                = "method-list"
 	HELP_VIEW                       = "help"
+	TRACE_VIEW                      = "trace"
 )
 
 var VIEW_TITLES = map[string]string{
@@ -78,6 +80,7 @@ var VIEW_TITLES = map[string]string{
 	SAVE_RESULT_VIEW:                "Save Result (press enter to close)",
 	METHOD_LIST_VIEW:                "Methods",
 	HELP_VIEW:                       "Help",
+	TRACE_VIEW:                      "Trace",
 }
 
 type position struct {
@@ -312,6 +315,7 @@ var TLS_VERSIONS = map[string]uint16{
 	"TLS1.0": tls.VersionTLS10,
 	"TLS1.1": tls.VersionTLS11,
 	"TLS1.2": tls.VersionTLS12,
+	"TLS1.3": tls.VersionTLS13,
 }
 
 var defaultEditor ViewEditor
@@ -858,6 +862,9 @@ func (a *App) SubmitRequest(g *gocui.Gui, _ *gocui.View) error {
 		if headers.Get("Host") != "" {
 			req.Host = headers.Get("Host")
 		}
+
+		// trace http call
+		req = req.WithContext(httptrace.WithClientTrace(req.Context(), getClientTrace()))
 
 		// do request
 		start := time.Now()

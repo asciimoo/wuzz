@@ -119,6 +119,12 @@ var COMMANDS map[string]func(string, *App) CommandFunc = map[string]func(string,
 			return nil
 		}
 	},
+	"printTraceBuffer": func(_ string, a *App) CommandFunc {
+		return func(g *gocui.Gui, _ *gocui.View) error {
+			dumpTraceClient(g, a)
+			return nil
+		}
+	},
 }
 
 func scrollView(v *gocui.View, dy int) error {

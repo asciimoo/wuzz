@@ -62,6 +62,7 @@ var DefaultKeys = map[string]map[string]string{
 		"CtrlO": "openEditor",
 		"CtrlT": "toggleContextSpecificSearch",
 		"CtrlX": "clearHistory",
+		"CtrlB": "printTraceBuffer",
 		"Tab":   "nextView",
 		"CtrlJ": "nextView",
 		"CtrlK": "prevView",
