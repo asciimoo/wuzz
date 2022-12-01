@@ -16,9 +16,20 @@ $ go get github.com/asciimoo/wuzz
 $ "$GOPATH/bin/wuzz" --help
 ```
 
-Note: golang >= 1.10 required.
+Note: golang version 1.19 required.
 
 [Binary releases](https://github.com/asciimoo/wuzz/releases) are also available.
+
+### Docker
+
+```bash
+docker build -t wuzz:1.19 .
+docker run -it wuzz:1.19 http://localhost
+```
+
+Any valid URL can be used, however, once wuzz is running it can be edited.
+
+
 
 
 ### Configuration
