@@ -1324,7 +1324,7 @@ func (a *App) SaveRequest(g *gocui.Gui, _ *gocui.View) (err error) {
 
 	popup.Title = VIEW_TITLES[SAVE_REQUEST_FORMAT_DIALOG_VIEW]
 
-	// Populate the popup witht the available formats
+	// Populate the popup with the available formats
 	for _, r := range EXPORT_FORMATS {
 		fmt.Fprintln(popup, r.name)
 	}
