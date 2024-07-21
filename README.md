@@ -12,7 +12,7 @@ browser's network inspector with the "copy as cURL" feature.
 ## Installation and usage
 
 ```
-$ go get github.com/asciimoo/wuzz
+$ go install github.com/asciimoo/wuzz@latest
 $ "$GOPATH/bin/wuzz" --help
 ```
 
