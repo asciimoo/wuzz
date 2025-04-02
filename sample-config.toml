@@ -31,7 +31,7 @@ F6 = "focus headers"
 F7 = "focus search"
 F8 = "focus response-headers"
 F9 = "focus response-body"
-F11 = "redirects restriction mode"
+F11 = "redirectRestriction"
 
 [keys.url]
 Enter = "submit"
