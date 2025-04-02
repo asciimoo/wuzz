@@ -11,6 +11,8 @@ browser's network inspector with the "copy as cURL" feature.
 
 ## Installation and usage
 
+### GO
+
 ```
 $ go get github.com/asciimoo/wuzz
 $ "$GOPATH/bin/wuzz" --help
@@ -19,6 +21,37 @@ $ "$GOPATH/bin/wuzz" --help
 Note: golang >= 1.10 required.
 
 [Binary releases](https://github.com/asciimoo/wuzz/releases) are also available.
+
+### Apt
+
+```
+$ apt install wuzz
+```
+
+### Apk
+
+```
+$ apk add wuzz
+```
+
+### Scoop
+
+```
+$ scoop bucket add main
+$ scoop install main/wuzz
+```
+
+### X-CMD
+
+```
+$ x env use wuzz
+```
+
+### Nix
+
+```
+$ nix-shell -p typioca
+```
 
 
 ### Configuration
