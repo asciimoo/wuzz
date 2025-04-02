@@ -50,7 +50,7 @@ $ x env use wuzz
 ### Nix
 
 ```
-$ nix-shell -p typioca
+$ nix-shell -p wuzz
 ```
 
 
