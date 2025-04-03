@@ -1103,6 +1103,16 @@ func (a *App) SetKeys(g *gocui.Gui) error {
 		return nil
 	})
 
+	g.SetKeybinding(ALL_VIEWS, gocui.KeyCtrlL, gocui.ModNone, func(g *gocui.Gui, v *gocui.View) error {
+		if a.currentPopup != "" {
+			return nil
+		}
+
+		a.restoreRequest(g, 0, true)
+		g.SetCurrentView(URL_VIEW)
+		return nil
+	})
+
 	g.SetKeybinding(REQUEST_METHOD_VIEW, gocui.KeyEnter, gocui.ModNone, a.ToggleMethodList)
 
 	cursDown := func(g *gocui.Gui, v *gocui.View) error {
@@ -1127,7 +1137,7 @@ func (a *App) SetKeys(g *gocui.Gui) error {
 		if len(a.history) <= cy {
 			return nil
 		}
-		a.restoreRequest(g, cy)
+		a.restoreRequest(g, cy, false)
 		return nil
 	})
 
@@ -1446,13 +1456,19 @@ func (a *App) OpenSaveResultView(saveResult string, g *gocui.Gui) (err error) {
 	return err
 }
 
-func (a *App) restoreRequest(g *gocui.Gui, idx int) {
-	if idx < 0 || idx >= len(a.history) {
+func (a *App) restoreRequest(g *gocui.Gui, idx int, isCleanToggle bool) {
+	if (idx < 0 || idx >= len(a.history)) && !isCleanToggle {
 		return
 	}
-	a.closePopup(g, HISTORY_VIEW)
-	a.historyIndex = idx
-	r := a.history[idx]
+	r := &Request{
+		Url:    fmt.Sprintf("%s://", a.config.General.DefaultURLScheme),
+		Method: http.MethodGet,
+	}
+	if !isCleanToggle {
+		a.closePopup(g, HISTORY_VIEW)
+		a.historyIndex = idx
+		r = a.history[idx]
+	}
 
 	v, _ := g.View(URL_VIEW)
 	setViewTextAndCursor(v, r.Url)
@@ -1472,8 +1488,13 @@ func (a *App) restoreRequest(g *gocui.Gui, idx int) {
 	v, _ = g.View(RESPONSE_HEADERS_VIEW)
 	setViewTextAndCursor(v, r.ResponseHeaders)
 
-	a.PrintBody(g)
-
+	switch isCleanToggle {
+	case true:
+		v, _ = g.View(RESPONSE_BODY_VIEW)
+		setViewTextAndCursor(v, "")
+	default:
+		a.PrintBody(g)
+	}
 }
 
 func (a *App) LoadConfig(configPath string) error {
