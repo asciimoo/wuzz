@@ -1845,6 +1845,9 @@ func main() {
 			fmt.Printf("wuzz %v\n", VERSION)
 			return
 		case "-c", "--config":
+			if i+1 >= len(os.Args) {
+				log.Fatal("Expected file after -c")
+			}
 			configPath = os.Args[i+1]
 			args = append(os.Args[:i], os.Args[i+2:]...)
 			if _, err := os.Stat(configPath); os.IsNotExist(err) {

@@ -77,6 +77,7 @@ Keybinding                              | Description
 <kbd>Ctrl+C</kbd>                       | Quit
 <kbd>Ctrl+K</kbd>, <kbd>Shift+Tab</kbd> | Previous view
 <kbd>Ctlr+J</kbd>, <kbd>Tab</kbd>       | Next view
+<kbd>Ctrl+O</kbd>                       | Open view in text editor
 <kbd>Ctlr+T</kbd>                       | Toggle context specific search
 <kbd>Alt+H</kbd>                        | Toggle history
 <kbd>Down</kbd>                         | Move down one view line
