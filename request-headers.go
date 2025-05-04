@@ -16,6 +16,7 @@ var REQUEST_HEADERS = []string{
 	"Date",
 	"Expect",
 	"Forwarded",
+	"ForceAttemptHTTP2",
 	"From",
 	"Host",
 	"If-Match",
