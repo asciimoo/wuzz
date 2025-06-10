@@ -78,6 +78,7 @@ Keybinding                              | Description
 <kbd>Ctrl+K</kbd>, <kbd>Shift+Tab</kbd> | Previous view
 <kbd>Ctlr+J</kbd>, <kbd>Tab</kbd>       | Next view
 <kbd>Ctlr+T</kbd>                       | Toggle context specific search
+<kbd>Ctrl+L</kbd>                       | Clear all tabs to default
 <kbd>Alt+H</kbd>                        | Toggle history
 <kbd>Down</kbd>                         | Move down one view line
 <kbd>Up</kbd>                           | Move up one view line
