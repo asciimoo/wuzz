@@ -1,0 +1,7 @@
+{
+  "data": "{\n  \"something\": 123,\n  \"a_string\": \"A string\"\n}",
+  "get": "x=1\u0026y=2",
+  "headers": "Cookie: \"SOMETHINGSOMETIHNG\"\nWarning: \"SOME_WARNING\"",
+  "method": "POST",
+  "url": "https://httpbin.org/post"
+}

@@ -1,0 +1,13 @@
+{
+  "args": {
+    "x": "1"
+  }, 
+  "headers": {
+    "Cookie": "something-something-something", 
+    "Host": "httpbin.org", 
+    "User-Agent": "myBrowser", 
+    "X-Amzn-Trace-Id": "Root=1-69c2a386-505f9dc97723a630783fdc69"
+  }, 
+  "origin": "74.14.7.142", 
+  "url": "https://httpbin.org/get?x=1"
+}

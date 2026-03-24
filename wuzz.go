@@ -34,9 +34,11 @@ import (
 
 const VERSION = "0.5.0"
 
-const TIMEOUT_DURATION = 5 // in seconds
-const WINDOWS_OS = "windows"
-const SEARCH_PROMPT = "search> "
+const (
+	TIMEOUT_DURATION = 5 // in seconds
+	WINDOWS_OS       = "windows"
+	SEARCH_PROMPT    = "search> "
+)
 
 const (
 	ALL_VIEWS = ""
@@ -94,67 +96,80 @@ var VIEW_POSITIONS = map[string]viewPosition{
 		position{0.0, 0},
 		position{0.0, 0},
 		position{1.0, -2},
-		position{0.0, 3}},
+		position{0.0, 3},
+	},
 	URL_PARAMS_VIEW: {
 		position{0.0, 0},
 		position{0.0, 3},
 		position{0.3, 0},
-		position{0.25, 0}},
+		position{0.25, 0},
+	},
 	REQUEST_METHOD_VIEW: {
 		position{0.0, 0},
 		position{0.25, 0},
 		position{0.3, 0},
-		position{0.25, 2}},
+		position{0.25, 2},
+	},
 	REQUEST_DATA_VIEW: {
 		position{0.0, 0},
 		position{0.25, 2},
 		position{0.3, 0},
-		position{0.5, 1}},
+		position{0.5, 1},
+	},
 	REQUEST_HEADERS_VIEW: {
 		position{0.0, 0},
 		position{0.5, 1},
 		position{0.3, 0},
-		position{1.0, -3}},
+		position{1.0, -3},
+	},
 	RESPONSE_HEADERS_VIEW: {
 		position{0.3, 0},
 		position{0.0, 3},
 		position{1.0, -2},
-		position{0.25, 2}},
+		position{0.25, 2},
+	},
 	RESPONSE_BODY_VIEW: {
 		position{0.3, 0},
 		position{0.25, 2},
 		position{1.0, -2},
-		position{1.0, -3}},
+		position{1.0, -3},
+	},
 	STATUSLINE_VIEW: {
 		position{0.0, -1},
 		position{1.0, -4},
 		position{1.0, 0},
-		position{1.0, -1}},
+		position{1.0, -1},
+	},
 	SEARCH_VIEW: {
 		position{0.0, 7},
 		position{1.0, -3},
 		position{1.0, -1},
-		position{1.0, -1}},
+		position{1.0, -1},
+	},
 	ERROR_VIEW: {
 		position{0.0, 0},
 		position{0.0, 0},
 		position{1.0, -2},
-		position{1.0, -2}},
+		position{1.0, -2},
+	},
 	SEARCH_PROMPT_VIEW: {
 		position{0.0, -1},
 		position{1.0, -3},
 		position{0.0, 8},
-		position{1.0, -1}},
+		position{1.0, -1},
+	},
 	POPUP_VIEW: {
 		position{0.5, -9999}, // set before usage using len(msg)
 		position{0.5, -1},
 		position{0.5, -9999}, // set before usage using len(msg)
-		position{0.5, 1}},
+		position{0.5, 1},
+	},
 	AUTOCOMPLETE_VIEW: {
 		position{0, -9999},
 		position{0, -9999},
 		position{0, -9999},
-		position{0, -9999}},
+		position{0, -9999},
+	},
 }
 
 type viewProperties struct {
@@ -282,6 +297,10 @@ var EXPORT_FORMATS = []struct {
 		name:   "curl",
 		export: exportCurl,
 	},
+	{
+		name:   "hurl",
+		export: exportHurl,
+	},
 }
 
 const DEFAULT_METHOD = http.MethodGet
@@ -291,6 +310,7 @@ var DEFAULT_FORMATTER = &formatter.TextFormatter{}
 var CLIENT = &http.Client{
 	Timeout: time.Duration(TIMEOUT_DURATION * time.Second),
 }
+
 var TRANSPORT = &http.Transport{
 	Proxy: http.ProxyFromEnvironment,
 }
@@ -1366,7 +1386,7 @@ func (a *App) SaveRequest(g *gocui.Gui, _ *gocui.View) (err error) {
 				request := EXPORT_FORMATS[format].export(r)
 
 				// Write the file
-				ioerr := ioutil.WriteFile(saveLocation, []byte(request), 0644)
+				ioerr := ioutil.WriteFile(saveLocation, []byte(request), 0o644)
 
 				saveResult := fmt.Sprintf("Request saved successfully in %s", EXPORT_FORMATS[format].name)
 				if ioerr != nil {
@@ -1921,7 +1941,6 @@ func main() {
 	}
 
 	err = app.SetKeys(g)
-
 	if err != nil {
 		g.Close()
 		fmt.Println("Error!", err)
@@ -1963,4 +1982,24 @@ func exportCurl(r Request) []byte {
 		params = fmt.Sprintf("?%s", r.GetParams)
 	}
 	return []byte(fmt.Sprintf("curl %s -X %s -d %s %s\n", headers, r.Method, shellescape.Quote(r.Data), shellescape.Quote(r.Url+params)))
+}
+
+func exportHurl(r Request) []byte {
+	var result []byte
+	var fullURL string
+
+	if r.GetParams != "" {
+		fullURL = fmt.Sprintf("%s?%s", r.Url, r.GetParams)
+	} else {
+		fullURL = r.Url
+	}
+
+	result = append(result, []byte(r.Method+" "+fullURL+"\n")...)
+	if r.Headers != "" {
+		result = append(result, []byte(r.Headers+"\n")...)
+	}
+	if r.Data != "" {
+		result = append(result, []byte(r.Data)...)
+	}
+	return result
 }
