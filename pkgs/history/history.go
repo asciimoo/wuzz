@@ -1,3 +1,4 @@
+// History package manages the storage and retrieval of request/response history using SQLite.
 package history
 
 import (
