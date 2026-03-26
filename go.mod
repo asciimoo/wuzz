@@ -7,7 +7,6 @@ require (
 	github.com/PuerkitoBio/goquery v1.10.3
 	github.com/alessio/shellescape v1.4.2
 	github.com/awesome-gocui/gocui v1.1.0
-	github.com/drone/runner-go v1.13.0
 	github.com/mattn/go-runewidth v0.0.19
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/nwidger/jsoncolor v0.3.2
@@ -31,7 +30,6 @@ require (
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/ncruces/go-strftime v1.0.0 // indirect
 	github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec // indirect
-	github.com/sirupsen/logrus v1.9.4 // indirect
 	github.com/tidwall/match v1.2.0 // indirect
 	github.com/tidwall/pretty v1.2.1 // indirect
 	golang.org/x/sys v0.42.0 // indirect

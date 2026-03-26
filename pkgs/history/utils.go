@@ -3,6 +3,10 @@ package history
 import (
 	"os"
 	"path/filepath"
+
+	"github.com/hasithdealwis/wuzz/config"
+	"github.com/hasithdealwis/wuzz/formatter"
+	"github.com/hasithdealwis/wuzz/pkgs/request"
 )
 
 func GetHistoryDBPath() string {
@@ -21,4 +25,20 @@ func GetHistoryDBPath() string {
 	}
 
 	return filepath.Join(homeDir, ".wuzz", "history.db")
+}
+
+// EntryToRequest converts a history.Entry to a request.Request
+func EntryToRequest(entry *Entry, config *config.Config) *request.Request {
+	return &request.Request{
+		Url:             entry.URL,
+		Method:          entry.Method,
+		GetParams:       entry.GetParams,
+		Data:            entry.Data,
+		Headers:         entry.Headers,
+		ResponseHeaders: entry.ResponseHeaders,
+		RawResponseBody: entry.RawResponseBody,
+		ContentType:     entry.ContentType,
+		Duration:        entry.Duration,
+		Formatter:       formatter.New(config, entry.ContentType),
+	}
 }

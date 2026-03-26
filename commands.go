@@ -9,6 +9,7 @@ import (
 	"unicode"
 
 	"github.com/awesome-gocui/gocui"
+	"github.com/hasithdealwis/wuzz/pkgs/request"
 )
 
 type CommandFunc func(*gocui.Gui, *gocui.View) error
@@ -106,7 +107,7 @@ var COMMANDS map[string]func(string, *App) CommandFunc = map[string]func(string,
 	},
 	"clearHistory": func(_ string, a *App) CommandFunc {
 		return func(g *gocui.Gui, _ *gocui.View) error {
-			a.history = make([]*Request, 0, 31)
+			a.history = make([]*request.Request, 0, 31)
 			a.historyIndex = 0
 			a.Layout(g)
 			return nil

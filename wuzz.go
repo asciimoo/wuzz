@@ -26,6 +26,7 @@ import (
 
 	"github.com/hasithdealwis/wuzz/config"
 	"github.com/hasithdealwis/wuzz/formatter"
+	"github.com/hasithdealwis/wuzz/pkgs/request"
 
 	"github.com/alessio/shellescape"
 	"github.com/awesome-gocui/gocui"
@@ -287,7 +288,7 @@ var METHODS = []string{
 
 var EXPORT_FORMATS = []struct {
 	name   string
-	export func(r Request) []byte
+	export func(r request.Request) []byte
 }{
 	{
 		name:   "JSON",
@@ -340,24 +341,11 @@ const (
 	MIN_HEIGHT = 20
 )
 
-type Request struct {
-	Url             string
-	Method          string
-	GetParams       string
-	Data            string
-	Headers         string
-	ResponseHeaders string
-	RawResponseBody []byte
-	ContentType     string
-	Duration        time.Duration
-	Formatter       formatter.ResponseFormatter
-}
-
 type App struct {
 	viewIndex    int
 	historyIndex int
 	currentPopup string
-	history      []*Request
+	history      []*request.Request
 	config       *config.Config
 	statusLine   *StatusLine
 }
@@ -752,9 +740,9 @@ func (a *App) SubmitRequest(g *gocui.Gui, _ *gocui.View) error {
 	vrh.Clear()
 	popup(g, "Sending request..")
 
-	var r *Request = &Request{}
+	var r *request.Request = &request.Request{}
 
-	go func(g *gocui.Gui, a *App, r *Request) error {
+	go func(g *gocui.Gui, a *App, r *request.Request) error {
 		defer g.DeleteView(POPUP_VIEW)
 		// parse url
 		r.Url = getViewValue(g, URL_VIEW)
@@ -1374,7 +1362,7 @@ func (a *App) SaveRequest(g *gocui.Gui, _ *gocui.View) (err error) {
 				defer a.closePopup(g, SAVE_DIALOG_VIEW)
 				saveLocation := getViewValue(g, SAVE_DIALOG_VIEW)
 
-				r := Request{
+				r := request.Request{
 					Url:       getViewValue(g, URL_VIEW),
 					Method:    getViewValue(g, REQUEST_METHOD_VIEW),
 					GetParams: getViewValue(g, URL_PARAMS_VIEW),
@@ -1480,7 +1468,7 @@ func (a *App) restoreRequest(g *gocui.Gui, idx int, isCleanToggle bool) {
 	if (idx < 0 || idx >= len(a.history)) && !isCleanToggle {
 		return
 	}
-	r := &Request{
+	r := &request.Request{
 		Url:    fmt.Sprintf("%s://", a.config.General.DefaultURLScheme),
 		Method: http.MethodGet,
 	}
@@ -1909,7 +1897,7 @@ func main() {
 		g.ASCII = true
 	}
 
-	app := &App{history: make([]*Request, 0, 31)}
+	app := &App{history: make([]*request.Request, 0, 31)}
 
 	// overwrite default editor
 	defaultEditor = ViewEditor{app, g, false, gocui.DefaultEditor}
@@ -1954,7 +1942,7 @@ func main() {
 	}
 }
 
-func exportJSON(r Request) []byte {
+func exportJSON(r request.Request) []byte {
 	requestMap := map[string]string{
 		URL_VIEW:             r.Url,
 		REQUEST_METHOD_VIEW:  r.Method,
@@ -1970,7 +1958,7 @@ func exportJSON(r Request) []byte {
 	return request
 }
 
-func exportCurl(r Request) []byte {
+func exportCurl(r request.Request) []byte {
 	var headers, params string
 	for _, header := range strings.Split(r.Headers, "\n") {
 		if header == "" {
@@ -1984,7 +1972,7 @@ func exportCurl(r Request) []byte {
 	return []byte(fmt.Sprintf("curl %s -X %s -d %s %s\n", headers, r.Method, shellescape.Quote(r.Data), shellescape.Quote(r.Url+params)))
 }
 
-func exportHurl(r Request) []byte {
+func exportHurl(r request.Request) []byte {
 	var result []byte
 	var fullURL string
 
