@@ -5,7 +5,7 @@ import (
 	"mime"
 	"strings"
 
-	"github.com/asciimoo/wuzz/config"
+	"github.com/hasithdealwis/wuzz/config"
 )
 
 type ResponseFormatter interface {

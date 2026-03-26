@@ -24,8 +24,8 @@ import (
 
 	"golang.org/x/net/proxy"
 
-	"github.com/asciimoo/wuzz/config"
-	"github.com/asciimoo/wuzz/formatter"
+	"github.com/hasithdealwis/wuzz/config"
+	"github.com/hasithdealwis/wuzz/formatter"
 
 	"github.com/alessio/shellescape"
 	"github.com/awesome-gocui/gocui"
