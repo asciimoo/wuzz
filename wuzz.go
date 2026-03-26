@@ -1868,7 +1868,7 @@ Key bindings:
   ctrl+f              Load request
   tab, ctrl+j         Next window
   shift+tab, ctrl+k   Previous window
-  alt+h               Show history
+  ctrl+h              Show history
   pageUp              Scroll up the current window
   pageDown            Scroll down the current window`,
 	)
