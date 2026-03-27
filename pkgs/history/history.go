@@ -4,6 +4,8 @@ package history
 import (
 	"database/sql"
 	"fmt"
+	"os"
+	"path/filepath"
 	"sync"
 	"time"
 
@@ -40,6 +42,12 @@ func Init(dbPath string) error {
 
 	if initialized {
 		return fmt.Errorf("history already initialized")
+	}
+
+	// Ensure the directory exists
+	dir := filepath.Dir(dbPath)
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return fmt.Errorf("failed to create database directory: %w", err)
 	}
 
 	var err error

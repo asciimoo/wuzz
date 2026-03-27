@@ -6,6 +6,7 @@ import (
 	"text/template"
 
 	"github.com/awesome-gocui/gocui"
+	"github.com/hasithdealwis/wuzz/pkgs/history"
 )
 
 type StatusLine struct {
@@ -21,27 +22,36 @@ func (_ *StatusLineFunctions) Version() string {
 }
 
 func (s *StatusLineFunctions) Duration() string {
-	if len(s.app.history) == 0 {
+	entries, err := history.GetHistory()
+	if err != nil || len(entries) == 0 {
 		return ""
 	}
-	return s.app.history[s.app.historyIndex].Duration.String()
+	return entries[0].Duration.String()
 }
 
 func (s *StatusLineFunctions) HistorySize() string {
-	return strconv.Itoa(len(s.app.history))
+	count, err := history.Count()
+	if err != nil {
+		return "0"
+	}
+	return strconv.Itoa(count)
 }
 
 func (s *StatusLineFunctions) RequestNumber() string {
-	i := s.app.historyIndex
-	if len(s.app.history) > 0 {
-		i += 1
+	count, err := history.Count()
+	if err != nil || count == 0 {
+		return "0"
 	}
-	return strconv.Itoa(i)
+	return "1"
 }
 
 func (s *StatusLineFunctions) SearchType() string {
-	if len(s.app.history) > 0 && !s.app.history[s.app.historyIndex].Formatter.Searchable() {
-		return "none"
+	entries, err := history.GetHistory()
+	if err == nil && len(entries) > 0 {
+		req := history.EntryToRequest(entries[0], s.app.config)
+		if !req.Formatter.Searchable() {
+			return "none"
+		}
 	}
 	if s.app.config.General.ContextSpecificSearch {
 		return "response specific"

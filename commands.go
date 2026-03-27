@@ -9,7 +9,7 @@ import (
 	"unicode"
 
 	"github.com/awesome-gocui/gocui"
-	"github.com/hasithdealwis/wuzz/pkgs/request"
+	"github.com/hasithdealwis/wuzz/pkgs/history"
 )
 
 type CommandFunc func(*gocui.Gui, *gocui.View) error
@@ -24,15 +24,16 @@ var COMMANDS map[string]func(string, *App) CommandFunc = map[string]func(string,
 				func(g *gocui.Gui, _ *gocui.View) error {
 					saveLocation := getViewValue(g, SAVE_DIALOG_VIEW)
 
-					if len(a.history) == 0 {
+					entries, err := history.GetHistory()
+					if err != nil || len(entries) == 0 {
 						return nil
 					}
-					req := a.history[a.historyIndex]
+					req := history.EntryToRequest(entries[0], a.config)
 					if req.RawResponseBody == nil {
 						return nil
 					}
 
-					err := ioutil.WriteFile(saveLocation, req.RawResponseBody, 0644)
+					err = ioutil.WriteFile(saveLocation, req.RawResponseBody, 0644)
 
 					var saveResult string
 					if err == nil {
@@ -107,8 +108,9 @@ var COMMANDS map[string]func(string, *App) CommandFunc = map[string]func(string,
 	},
 	"clearHistory": func(_ string, a *App) CommandFunc {
 		return func(g *gocui.Gui, _ *gocui.View) error {
-			a.history = make([]*request.Request, 0, 31)
-			a.historyIndex = 0
+			if err := history.Clear(); err != nil {
+				return err
+			}
 			a.Layout(g)
 			return nil
 		}

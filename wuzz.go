@@ -26,6 +26,7 @@ import (
 
 	"github.com/hasithdealwis/wuzz/config"
 	"github.com/hasithdealwis/wuzz/formatter"
+	"github.com/hasithdealwis/wuzz/pkgs/history"
 	"github.com/hasithdealwis/wuzz/pkgs/request"
 
 	"github.com/alessio/shellescape"
@@ -343,9 +344,7 @@ const (
 
 type App struct {
 	viewIndex    int
-	historyIndex int
 	currentPopup string
-	history      []*request.Request
 	config       *config.Config
 	statusLine   *StatusLine
 }
@@ -906,8 +905,23 @@ func (a *App) SubmitRequest(g *gocui.Gui, _ *gocui.View) error {
 		r.Formatter = formatter.New(a.config, r.ContentType)
 
 		// add to history
-		a.history = append(a.history, r)
-		a.historyIndex = len(a.history) - 1
+		entry := &history.Entry{
+			Timestamp:       time.Now(),
+			URL:             r.Url,
+			Method:          r.Method,
+			GetParams:       r.GetParams,
+			Data:            r.Data,
+			Headers:         r.Headers,
+			ResponseHeaders: r.ResponseHeaders,
+			RawResponseBody: r.RawResponseBody,
+			ContentType:     r.ContentType,
+			Duration:        r.Duration,
+		}
+
+		if err := history.AddEntry(entry); err != nil {
+			// Log error but don't fail the request
+			fmt.Fprintf(os.Stderr, "Failed to save to history: %v\n", err)
+		}
 
 		// render response
 		g.Update(func(g *gocui.Gui) error {
@@ -952,10 +966,14 @@ func (a *App) SubmitRequest(g *gocui.Gui, _ *gocui.View) error {
 
 func (a *App) PrintBody(g *gocui.Gui) {
 	g.Update(func(g *gocui.Gui) error {
-		if len(a.history) == 0 {
+		entries, err := history.GetHistory()
+		if err != nil || len(entries) == 0 {
 			return nil
 		}
-		req := a.history[a.historyIndex]
+
+		// Use the most recent entry
+		req := history.EntryToRequest(entries[0], a.config)
+
 		if req.RawResponseBody == nil {
 			return nil
 		}
@@ -1141,10 +1159,7 @@ func (a *App) SetKeys(g *gocui.Gui) error {
 	g.SetKeybinding(HISTORY_VIEW, gocui.KeyArrowUp, gocui.ModNone, cursUp)
 	g.SetKeybinding(HISTORY_VIEW, gocui.KeyEnter, gocui.ModNone, func(g *gocui.Gui, v *gocui.View) error {
 		_, cy := v.Cursor()
-		// TODO error
-		if len(a.history) <= cy {
-			return nil
-		}
+
 		a.restoreRequest(g, cy, false)
 		return nil
 	})
@@ -1298,33 +1313,40 @@ func (a *App) ToggleHistory(g *gocui.Gui, _ *gocui.View) (err error) {
 		return
 	}
 
-	history, err := a.CreatePopupView(HISTORY_VIEW, 100, len(a.history), g)
+	entries, err := history.GetHistory()
+	if err != nil {
+		return err
+	}
+
+	history_view, err := a.CreatePopupView(HISTORY_VIEW, 100, len(entries), g)
 	if err != nil {
 		return
 	}
 
-	history.Title = VIEW_TITLES[HISTORY_VIEW]
+	history_view.Title = VIEW_TITLES[HISTORY_VIEW]
 
-	if len(a.history) == 0 {
-		setViewTextAndCursor(history, "[!] No items in history")
+	if len(entries) == 0 {
+		setViewTextAndCursor(history_view, "[!] No items in history")
 		return
 	}
-	for i, r := range a.history {
-		req_str := fmt.Sprintf("[%02d] %v %v", i, r.Method, r.Url)
-		if r.GetParams != "" {
-			req_str += fmt.Sprintf("?%v", strings.Replace(r.GetParams, "\n", "&", -1))
+
+	for i, e := range entries {
+		req_str := fmt.Sprintf("[%02d] %v %v", i, e.Method, e.URL)
+		if e.GetParams != "" {
+			req_str += fmt.Sprintf("?%v", strings.Replace(e.GetParams, "\n", "&", -1))
 		}
-		if r.Data != "" {
-			req_str += fmt.Sprintf(" %v", strings.Replace(r.Data, "\n", "&", -1))
+		if e.Data != "" {
+			req_str += fmt.Sprintf(" %v", strings.Replace(e.Data, "\n", "&", -1))
 		}
-		if r.Headers != "" {
-			req_str += fmt.Sprintf(" %v", strings.Replace(r.Headers, "\n", ";", -1))
+		if e.Headers != "" {
+			req_str += fmt.Sprintf(" %v", strings.Replace(e.Headers, "\n", ";", -1))
 		}
-		fmt.Fprintln(history, req_str)
+		fmt.Fprintln(history_view, req_str)
 	}
+
 	g.SetViewOnTop(HISTORY_VIEW)
 	g.SetCurrentView(HISTORY_VIEW)
-	history.SetCursor(0, a.historyIndex)
+	history_view.SetCursor(0, 0) // Always start at top (most recent)
 	return
 }
 
@@ -1465,17 +1487,19 @@ func (a *App) OpenSaveResultView(saveResult string, g *gocui.Gui) (err error) {
 }
 
 func (a *App) restoreRequest(g *gocui.Gui, idx int, isCleanToggle bool) {
-	if (idx < 0 || idx >= len(a.history)) && !isCleanToggle {
+	entries, err := history.GetHistory()
+	if err != nil || (idx < 0 || idx >= len(entries)) && !isCleanToggle {
 		return
 	}
+
 	r := &request.Request{
 		Url:    fmt.Sprintf("%s://", a.config.General.DefaultURLScheme),
 		Method: http.MethodGet,
 	}
+
 	if !isCleanToggle {
 		a.closePopup(g, HISTORY_VIEW)
-		a.historyIndex = idx
-		r = a.history[idx]
+		r = history.EntryToRequest(entries[idx], a.config)
 	}
 
 	v, _ := g.View(URL_VIEW)
@@ -1897,7 +1921,7 @@ func main() {
 		g.ASCII = true
 	}
 
-	app := &App{history: make([]*request.Request, 0, 31)}
+	app := &App{}
 
 	// overwrite default editor
 	defaultEditor = ViewEditor{app, g, false, gocui.DefaultEditor}
@@ -1921,6 +1945,11 @@ func main() {
 	// behavior associated with them. This is run after ParseArgs so
 	// that command-line arguments can override configuration values.
 	app.InitConfig()
+	if err := history.Init(history.GetHistoryDBPath()); err != nil {
+		g.Close()
+		fmt.Println("Error initializing history:", err)
+		os.Exit(1)
+	}
 
 	if err != nil {
 		g.Close()
