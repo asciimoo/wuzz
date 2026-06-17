@@ -802,7 +802,6 @@ func (a *App) SubmitRequest(g *gocui.Gui, _ *gocui.View) error {
 			} else {
 				var bodyBytes bytes.Buffer
 				multiWriter := multipart.NewWriter(&bodyBytes)
-				defer multiWriter.Close()
 				postData, err := url.ParseQuery(strings.Replace(getViewValue(g, REQUEST_DATA_VIEW), "\n", "&", -1))
 				if err != nil {
 					return err
@@ -838,6 +837,10 @@ func (a *App) SubmitRequest(g *gocui.Gui, _ *gocui.View) error {
 						}
 					}
 				}
+				if err := multiWriter.Close(); err != nil {
+					return err
+				}
+				headers.Set("Content-Type", multiWriter.FormDataContentType())
 				body = bytes.NewReader(bodyBytes.Bytes())
 			}
 		}
