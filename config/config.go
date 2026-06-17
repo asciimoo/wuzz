@@ -146,7 +146,14 @@ func LoadConfig(configFile string) (*Config, error) {
 					}
 				}
 			} else {
-				conf.Keys[keyCategory] = keys
+				// copy the category map instead of aliasing the
+				// shared DefaultKeys map, otherwise mutating this
+				// config would corrupt the global defaults.
+				categoryCopy := make(map[string]string, len(keys))
+				for key, action := range keys {
+					categoryCopy[key] = action
+				}
+				conf.Keys[keyCategory] = categoryCopy
 			}
 		}
 	}
