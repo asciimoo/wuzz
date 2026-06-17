@@ -784,7 +784,11 @@ func (a *App) SubmitRequest(g *gocui.Gui, _ *gocui.View) error {
 					})
 					return nil
 				}
-				headers.Set(header_parts[0], header_parts[1])
+				if http.CanonicalHeaderKey(header_parts[0]) == "User-Agent" {
+					headers.Set(header_parts[0], header_parts[1])
+				} else {
+					headers.Add(header_parts[0], header_parts[1])
+				}
 			}
 		}
 
