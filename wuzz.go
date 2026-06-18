@@ -1866,6 +1866,9 @@ func main() {
 			fmt.Printf("wuzz %v\n", VERSION)
 			return
 		case "-c", "--config":
+			if i == len(os.Args)-1 {
+				log.Fatal("No config file specified")
+			}
 			configPath = os.Args[i+1]
 			args = append(os.Args[:i], os.Args[i+2:]...)
 			if _, err := os.Stat(configPath); os.IsNotExist(err) {
