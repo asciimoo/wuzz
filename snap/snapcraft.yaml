@@ -1,0 +1,27 @@
+name: wuzz
+summary: Interactive cli tool for HTTP inspection
+description: |
+  Wuzz command line arguments are similar to cURL's arguments, so it can be
+  used to inspect/modify requests copied from the browser's network inspector
+  with the "copy as cURL" feature.
+adopt-info: wuzz
+confinement: strict
+
+apps:
+    wuzz:
+        command: bin/wuzz
+        plugs: [ network ]
+parts:
+    wuzz:
+        source: .
+        plugin: go
+        go-importpath: github.com/asciimoo/wuzz
+        override-pull: |
+            snapcraftctl pull
+            version="$(git describe --always | sed -e 's/-/+git/;y/-/./')"
+            [ -n "$(echo $version | grep "+git")" ] && grade=devel || grade=stable
+            snapcraftctl set-version "$version"
+            snapcraftctl set-grade "$grade"
+        after: [go]
+    go:
+        source-tag: go1.10.5
